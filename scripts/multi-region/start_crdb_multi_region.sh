@@ -1,13 +1,8 @@
 #!/bin/bash
 
-# Always use the latest cockroachdb image
-if [ -z "$(docker images -q cockroachdb/cockroach:latest 2> /dev/null)" ]; then
-    docker rmi -f $(docker images -q cockroachdb/cockroach:latest)
-fi
-
 # Always build the modified crdb image with tc tool to ensure it's from latest cockroach image
 if [ -z "$(docker images -q crdb:latest 2> /dev/null)" ]; then
-    docker rmi -f $(docker images -q crdb:latest)
+    docker rmi -f "$(docker images -q crdb:latest)"
 fi
 docker build -t crdb .
 
@@ -119,7 +114,7 @@ sleep 10
 docker run -d --name=roach-seattle-3 --hostname=roach-seattle-3 --ip=172.27.0.13 --cap-add NET_ADMIN --net=us-west-2-net --add-host=roach-seattle-1:172.27.0.11 --add-host=roach-seattle-2:172.27.0.12 --add-host=roach-seattle-3:172.27.0.13 -p 8082:8080 -v "roach-seattle-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-west-2,zone=c
 sleep 10
 # Seattle HAProxy
-docker run -d --name haproxy-seattle --ip=172.27.0.10 -p 26257:26257 --net=us-west-2-net -v `pwd`/data/us-west-2/:/usr/local/etc/haproxy:ro haproxy:1.7
+docker run -d --name haproxy-seattle --ip=172.27.0.10 -p 26257:26257 --net=us-west-2-net -v "$(pwd)"/data/us-west-2/:/usr/local/etc/haproxy:ro haproxy:1.7
 sleep 10
 
 # New York
@@ -130,7 +125,7 @@ sleep 10
 docker run -d --name=roach-newyork-3 --hostname=roach-newyork-3 --ip=172.28.0.13 --cap-add NET_ADMIN --net=us-east-1-net --add-host=roach-newyork-1:172.28.0.11 --add-host=roach-newyork-2:172.28.0.12 --add-host=roach-newyork-3:172.28.0.13 -p 8182:8080 -v "roach-newyork-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=us-east-1,zone=c
 sleep 10
 # New York HAProxy
-docker run -d --name haproxy-newyork --ip=172.28.0.10 -p 26258:26257 --net=us-east-1-net -v `pwd`/data/us-east-1/:/usr/local/etc/haproxy:ro haproxy:1.7
+docker run -d --name haproxy-newyork --ip=172.28.0.10 -p 26258:26257 --net=us-east-1-net -v "$(pwd)"/data/us-east-1/:/usr/local/etc/haproxy:ro haproxy:1.7
 sleep 10
 
 # London
@@ -141,7 +136,7 @@ sleep 10
 docker run -d --name=roach-london-3 --hostname=roach-london-3 --ip=172.29.0.13 --cap-add NET_ADMIN --net=eu-west-1-net --add-host=roach-london-1:172.29.0.11 --add-host=roach-london-2:172.29.0.12 --add-host=roach-london-3:172.29.0.13 -p 8282:8080 -v "roach-london-3-data:/cockroach/cockroach-data" crdb start --insecure --join=roach-seattle-1,roach-newyork-1,roach-london-1 --locality=region=eu-west-1,zone=c
 sleep 10
 # London HAProxy
-docker run -d --name haproxy-london --ip=172.29.0.10 -p 26259:26257 --net=eu-west-1-net -v `pwd`/data/eu-west-1/:/usr/local/etc/haproxy:ro haproxy:1.7
+docker run -d --name haproxy-london --ip=172.29.0.10 -p 26259:26257 --net=eu-west-1-net -v "$(pwd)"/data/eu-west-1/:/usr/local/etc/haproxy:ro haproxy:1.7
 sleep 10
 
 docker exec -it roach-newyork-1 ./cockroach init --insecure

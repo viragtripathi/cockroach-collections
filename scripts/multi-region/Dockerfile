@@ -3,7 +3,7 @@ FROM cockroachdb/cockroach:latest AS base
 LABEL maintainer="virag.tripathi@gmail.com"
 LABEL version="1.0"
 LABEL description="cockroach base image"
-LABEL REFRESHED_AT $(date)
+LABEL REFRESHED_AT =(date)
 
 FROM ubuntu
 

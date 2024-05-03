@@ -20,4 +20,5 @@ README.html
 logs/**
 buildNumber.properties
 versions.properties
+/scripts/multi-region/data
 **/.DS_Store
