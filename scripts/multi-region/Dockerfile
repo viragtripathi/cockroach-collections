@@ -9,9 +9,10 @@ FROM ubuntu
 
 # For deployment, we need the following additionally installed:
 # tzdata - for time zone functions; reinstalled to replace the missing
-#          files in /usr/share/zoneinfo/
-# hostname - used in cockroach k8s manifests
-# tar - used by kubectl cp
+#          files in /usr/share/zoneinfo/ (optional)
+# hostname - used in cockroach k8s manifests (optional)
+# tar - used by kubectl cp (optional for docker setup)
+# iproute2 - required to simulate the latency between the cluster nodes.
 
 RUN apt-get update && apt-get install -y \
     tzdata \
