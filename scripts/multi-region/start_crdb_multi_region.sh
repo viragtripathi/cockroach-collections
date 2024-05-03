@@ -1,6 +1,14 @@
 #!/bin/bash
 
-docker rmi -f crdb
+# Always use the latest cockroachdb image
+if [ -z "$(docker images -q cockroachdb/cockroach:latest 2> /dev/null)" ]; then
+    docker rmi -f $(docker images -q cockroachdb/cockroach:latest)
+fi
+
+# Always build the modified crdb image with tc tool to ensure it's from latest cockroach image
+if [ -z "$(docker images -q crdb:latest 2> /dev/null)" ]; then
+    docker rmi -f $(docker images -q crdb:latest)
+fi
 docker build -t crdb .
 
 # region networks
