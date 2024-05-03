@@ -2,7 +2,6 @@
 
 # Prerequisites
 
-## 
 Docker compatible [*nix OS](https://en.wikipedia.org/wiki/Unix-like) and [Docker](https://docs.docker.com/get-docker) installed.
 
 <br>Please have 8-12 vCPU*, 20GB RAM and 20GB storage for the multi-region setup to function properly. Adjust the resources based on your requirements.</br>
