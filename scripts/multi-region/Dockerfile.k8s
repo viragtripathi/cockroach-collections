@@ -7,9 +7,20 @@ LABEL REFRESHED_AT =(date)
 
 FROM ubuntu
 
+# For deployment, we need the following additionally installed:
+# tzdata - for time zone functions; reinstalled to replace the missing
+#          files in /usr/share/zoneinfo/ (optional)
+# hostname - used in cockroach k8s manifests (optional)
+# tar - used by kubectl cp (optional for docker setup)
 # iproute2 - required to simulate the latency between the cluster nodes.
 
 RUN apt-get update && apt-get install -y \
+    tzdata \
+    hostname \
+    tar  \
+    gzip \
+    xz-utils \
+    ca-certificates \
     iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
