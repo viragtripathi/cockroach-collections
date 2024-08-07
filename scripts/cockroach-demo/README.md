@@ -33,9 +33,9 @@ $ docker-compose up -d
 ````cmd
 $ docker exec -it cockroach-single-node ./cockroach demo --http-port=8040 --sql-port=26289
 ````
-| ℹ️                                                                                                                        |
-|:--------------------------------------------------------------------------------------------------------------------------|
-| CockroachDB Single-Node server is running on fixed `26257` and `8080` ports so the demo one has to be on different ports. |
+| ℹ️                                                                                                                                     |
+|:---------------------------------------------------------------------------------------------------------------------------------------|
+| CockroachDB Single-Node server is running on fixed sql port `26257` and http port `8080` so the demo one has to be on different ports. |
 
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 > **🦺**
