@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+
+  cockroach-single-node:
+    image: cockroachdb/cockroach:latest
+    command: start-single-node --insecure
+    ports:
+      - "8080:8080"
+      - "26257:26257"
+    stdin_open: true
+    tty: true
+    container_name: cockroach-single-node
+    hostname: cockroach-single-node
