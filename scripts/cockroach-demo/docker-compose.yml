@@ -6,8 +6,8 @@ services:
     image: cockroachdb/cockroach:latest
     command: start-single-node --insecure
     ports:
-      - "8080:8080"
-      - "26257:26257"
+      - "8080:8080" # default
+      - "26257:26257" # default
     stdin_open: true
     tty: true
     container_name: cockroach-single-node
