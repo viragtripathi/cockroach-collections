@@ -100,6 +100,12 @@ script -c $(cockroach demo --insecure) /dev/null >/dev/null
 cockroach sql --url 'postgresql://root@0.0.0.0:26257/movr?sslmode=disable'
 ````
 
+### Stop cockroach demo
+
+````bash
+kill $(ps aux | grep cockroach | grep -v grep | awk '{print $2}')
+````
+
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 > **🦺**
 > This is only for demo and testing purposes.
