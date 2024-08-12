@@ -1,13 +1,14 @@
 # cockroach demo
+https://www.cockroachlabs.com/docs/stable/cockroach-demo
 
-# Prerequisites
+## Using Docker
 
 Docker compatible [*nix OS](https://en.wikipedia.org/wiki/Unix-like) and [Docker](https://docs.docker.com/get-docker) installed.
 
 <br>Please have 4 vCPU*, 10GB RAM and 20GB storage for the single-region setup to function properly. Adjust the resources based on your requirements.</br>
 
 ***MacOS Users:*** If you don't have or can't get Docker Desktop then install docker and docker-compose using homebrew
-I use docker with [colima](https://github.com/abiosoft/colima):
+I use docker with [colima](https://github.com/abiosoft/colima) for this example:
 
 `brew install docker`
 
@@ -83,6 +84,22 @@ root@127.0.0.1:26258/movr>
 
 </p>
 </details>
+
+## Using macOS
+
+### Download and install [CockroachDB](https://www.cockroachlabs.com/docs/releases?filters=mac) binary
+
+### Start cockroach demo
+
+* Start a cockroach demo instance in a terminal window by copying/pasting the line below:
+````bash
+script -c $(cockroach demo --insecure) /dev/null >/dev/null
+````
+* Now, access `cockroach demo` instance using built-in `sql` client or any other clients i.e. psql, isql, DBeaver, Java etc.
+````bash
+cockroach sql --url 'postgresql://root@0.0.0.0:26257/movr?sslmode=disable'
+````
+
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 > **🦺**
 > This is only for demo and testing purposes.
