@@ -15,8 +15,6 @@ We will:
 Let's start by creating the table to store product data along with vector embeddings.
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-
 CREATE TABLE products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name STRING NOT NULL,
@@ -138,5 +136,3 @@ Here are some real-world applications where vector embeddings and `pgvector` can
 ### Summary
 
 This deeper dive shows how `pgvector` can be used in a real-world e-commerce setting for product recommendations. With techniques such as approximate nearest neighbor (ANN) indexing and partitioning, you can scale these solutions to handle massive datasets, all while maintaining fast and accurate recommendations.
-
-Let me know if you'd like to explore a specific aspect further or have other use cases in mind!
