@@ -1,4 +1,44 @@
-# Convert changefeed output to Debezium format
+# Convert CockroachDB Changefeed output to Debezium format
+
+## Step-by-Step Example
+
+**1.** Create the `orders` table
+
+````sql
+CREATE TABLE orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID NOT NULL,
+    order_total DECIMAL(10, 2),
+    order_status STRING,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now() ON UPDATE now()
+);
+````
+
+**2.** Create the Changefeed
+<br>To create a Changefeed that streams data in JSON format, using the correct connection string format, follow this structure. Ensure you specify a valid target sink like Kafka or cloud storage:
+
+**Example for a Local Kafka Sink:**
+````sql
+CREATE CHANGEFEED FOR TABLE orders
+INTO 'kafka://localhost:9092?topic=orders_changes'
+WITH format = 'json', resolved = '10s';
+````
+This would stream changes from the orders table to a Kafka topic called orders_changes in JSON format. The resolved timestamps will be emitted every 10 seconds.
+
+**3.** Start the Kafka environment
+
+````bash
+./kafka_kraft_setup.sh
+````
+
+**4.** Start the Kafka Console Consumer
+
+````bash
+./kafka_start_consumer.sh
+````
+
+**5.** Convert the Changefeed
 
 ````bash
 cat changefeed_event.json
