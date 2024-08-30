@@ -3,29 +3,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import sys
 import csv
-import json
-import pandas as pd
-from apscheduler.schedulers.background import BackgroundScheduler
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-import time
-import logging
 import yaml
+import logging
+import argparse
+import gzip
+import tarfile
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import smtplib
 from email.mime.text import MIMEText
-import re
-import argparse
-import gzip
-import tarfile
-from faker import Faker
+import time
+import threading
 
-# Load configuration with environment variable substitution
 def load_config(config_path):
     try:
         with open(config_path, 'r') as file:
             config = yaml.safe_load(file)
+        return config
     except FileNotFoundError:
         logging.critical(f"Configuration file '{config_path}' not found. Please provide a valid config file.")
         sys.exit(1)
@@ -33,31 +27,8 @@ def load_config(config_path):
         logging.critical(f"Error parsing YAML file '{config_path}': {exc}")
         sys.exit(1)
 
-    # Replace any environment variables in the configuration
-    def replace_env_variables(value):
-        if isinstance(value, str):
-            # Look for patterns like ${VAR_NAME}
-            matches = re.findall(r'\$\{([A-Z_][A-Z0-9_]*)\}', value)
-            for match in matches:
-                env_value = os.getenv(match)
-                if env_value:
-                    value = value.replace(f"${{{match}}}", env_value)
-                else:
-                    logging.warning(f"Environment variable {match} is not set.")
-        return value
-
-    def recursive_replace(config):
-        if isinstance(config, dict):
-            return {k: recursive_replace(v) for k, v in config.items()}
-        elif isinstance(config, list):
-            return [recursive_replace(i) for i in config]
-        else:
-            return replace_env_variables(config)
-
-    return recursive_replace(config)
-
-# Configure logging
 def setup_logging(level):
+    logging.getLogger().handlers.clear()
     logging.basicConfig(
         level=level,
         format='%(asctime)s %(levelname)s: %(message)s',
@@ -67,7 +38,6 @@ def setup_logging(level):
         ]
     )
 
-# Slack alert function
 def send_slack_alert(message, slack_token, slack_channel):
     if slack_token and slack_channel:
         client = WebClient(token=slack_token)
@@ -79,7 +49,6 @@ def send_slack_alert(message, slack_token, slack_channel):
     else:
         logging.info("Slack alerts are disabled as Slack token or channel is not provided.")
 
-# Email alert function
 def send_email_alert(subject, body, to_email, from_email, smtp_server):
     if to_email and from_email and smtp_server:
         msg = MIMEText(body)
@@ -97,7 +66,7 @@ def send_email_alert(subject, body, to_email, from_email, smtp_server):
         logging.info("Email alerts are disabled as email configuration is not fully provided.")
 
 def load_batch(connection, insert_query, batch_data, total_records, records_loaded, max_retries=3, slack_token=None, slack_channel=None, alert_email=None, smtp_server=None):
-    """Load a single batch of data into the database with retry logic and logging."""
+    start_time = time.time()  # Start time for this thread
     retries = 0
     while retries < max_retries:
         try:
@@ -106,28 +75,30 @@ def load_batch(connection, insert_query, batch_data, total_records, records_load
                 connection.commit()
             records_loaded += len(batch_data)
             percent_complete = (records_loaded / total_records) * 100
-            logging.info(f"Batch loaded successfully: {len(batch_data)} records. {percent_complete:.2f}% complete.")
-            return records_loaded
+            print(f"\rRecords Loaded: {records_loaded} ({percent_complete:.2f}% complete)", end="")
+            sys.stdout.flush()  # Ensure the console output is flushed immediately
+            elapsed_time = time.time() - start_time  # End time for this thread
+            thread_name = threading.current_thread().name
+            logging.debug(f"{thread_name} finished loading {len(batch_data)} records in {elapsed_time:.2f} seconds.")
+            return records_loaded, elapsed_time
         except Exception as e:
             retries += 1
             connection.rollback()
-            logging.warning(f"Failed to load batch, retry {retries}/{max_retries}: {e}")
+            logging.warning(f"{thread_name} failed to load batch, retry {retries}/{max_retries}: {e}")
             time.sleep(2 ** retries)
             if retries == max_retries:
-                logging.error(f"Batch permanently failed after {max_retries} retries")
-                alert_message = f"Data Loader Error: Failed to load a batch of data after {max_retries} retries.\nError: {e}"
+                logging.error(f"{thread_name} permanently failed after {max_retries} retries")
+                alert_message = f"Data Loader Error: {thread_name} failed to load a batch of data after {max_retries} retries.\nError: {e}"
                 send_slack_alert(alert_message, slack_token, slack_channel)
                 send_email_alert("Data Loader Error", alert_message, alert_email, from_email=alert_email, smtp_server=smtp_server)
                 raise e
 
 def read_data(file_path, file_format='csv'):
-    """Read data from different file formats, including support for compressed files."""
     if file_path.endswith('.gz'):
         open_func = gzip.open
     elif file_path.endswith('.tar.gz'):
         tar = tarfile.open(file_path, "r:gz")
         members = tar.getmembers()
-        # Assume only one data file inside the tar.gz
         open_func = lambda: tar.extractfile(members[0])
     else:
         open_func = open
@@ -153,28 +124,6 @@ def read_data(file_path, file_format='csv'):
             for row in df.itertuples(index=False, name=None):
                 yield row, total_records
 
-def generate_fake_data(schema, num_records):
-    """Generate fake data based on the provided schema."""
-    fake = Faker()
-    data = []
-    for _ in range(num_records):
-        record = []
-        for column in schema:
-            if column['type'] == 'string':
-                record.append(fake.name() if 'name' in column.get('name_hint', '').lower() else fake.word())
-            elif column['type'] == 'int':
-                record.append(fake.random_int(min=column.get('min', 0), max=column.get('max', 100)))
-            elif column['type'] == 'date':
-                record.append(fake.date())
-            elif column['type'] == 'email':
-                record.append(fake.email())
-            elif column['type'] == 'address':
-                record.append(fake.address())
-            else:
-                record.append(fake.word())  # Default fallback for unknown types
-        data.append(tuple(record))
-    return data
-
 def validate_data_load(connection, table_name, expected_records):
     """Validate that the correct number of records were inserted into the table."""
     try:
@@ -189,104 +138,71 @@ def validate_data_load(connection, table_name, expected_records):
     except Exception as e:
         logging.error(f"Failed to validate data load: {e}")
 
-def data_loader(config):
-    """Main function to load data into CockroachDB with logging and error handling."""
-    connection = None
+def process_data_load(config):
+    start_time = time.time()  # Start time for the entire data load process
+
     try:
-        connection = psycopg2.connect(**config['connection_params'])
-        insert_query = f"INSERT INTO {config['table_name']} ({', '.join(config['columns'])}) VALUES ({', '.join(['%s'] * len(config['columns']))})"
-        
-        batch_data = []
+        conn_params = config['connection_params']
+        logging.debug(f"Attempting to connect to the database with params: {conn_params}")
+        connection = psycopg2.connect(**conn_params)
+        logging.debug("Database connection established.")
+    except Exception as e:
+        logging.critical(f"Failed to connect to the database: {e}")
+        sys.exit(1)
+
+    insert_query = f"INSERT INTO {config['table_name']} ({', '.join(config['columns'])}) VALUES ({', '.join(['%s'] * len(config['columns']))})"
+    logging.debug(f"Insert query: {insert_query}")
+
+    try:
+        file_path = config['file_path']
+        logging.debug(f"Attempting to read the data file from path: {file_path}")
         records_loaded = 0
-        futures = []
-
-        # Check if fake data generation is enabled
-        if config.get('generate_fake_data'):
-            schema = config['generate_fake_data']['schema']
-            num_records = config['generate_fake_data']['num_records']
-            fake_data = generate_fake_data(schema, num_records)
-            total_records = len(fake_data)
-            logging.info(f"Generated {total_records} fake records for table {config['table_name']}.")
-
-            for row in fake_data:
+        batch_data = []
+        thread_times = []  # To store the time taken by each thread
+        
+        with ThreadPoolExecutor(max_workers=config['num_threads']) as executor:
+            futures = []
+            for row, total_records in read_data(file_path, config['file_format']):
                 batch_data.append(row)
                 if len(batch_data) >= config['batch_size']:
-                    futures.append(executor.submit(load_batch, connection, insert_query, batch_data.copy(),
-                                                   total_records, records_loaded,
-                                                   slack_token=config.get('slack_token'), slack_channel=config.get('slack_channel'),
-                                                   alert_email=config.get('alert_email'), smtp_server=config.get('smtp_server')))
-                    batch_data.clear()
-        else:
-            with ThreadPoolExecutor(max_workers=config['num_threads']) as executor:
-                for row, total_records in read_data(config['file_path'], config['file_format']):
-                    batch_data.append(row)
-                    if len(batch_data) >= config['batch_size']:
-                        futures.append(executor.submit(load_batch, connection, insert_query, batch_data.copy(),
-                                                       total_records, records_loaded,
-                                                       slack_token=config.get('slack_token'), slack_channel=config.get('slack_channel'),
-                                                       alert_email=config.get('alert_email'), smtp_server=config.get('smtp_server')))
-                        batch_data.clear()
+                    future = executor.submit(load_batch, connection, insert_query, batch_data, total_records, records_loaded,
+                                             slack_token=config.get('slack_token'), slack_channel=config.get('slack_channel'),
+                                             alert_email=config.get('alert_email'), smtp_server=config.get('smtp_server'))
+                    futures.append(future)
+                    batch_data = []
 
-                if batch_data:
-                    futures.append(executor.submit(load_batch, connection, insert_query, batch_data.copy(),
-                                                   total_records, records_loaded,
-                                                   slack_token=config.get('slack_token'), slack_channel=config.get('slack_channel'),
-                                                   alert_email=config.get('alert_email'), smtp_server=config.get('smtp_server')))
+            if batch_data:
+                future = executor.submit(load_batch, connection, insert_query, batch_data, total_records, records_loaded,
+                                         slack_token=config.get('slack_token'), slack_channel=config.get('slack_channel'),
+                                         alert_email=config.get('alert_email'), smtp_server=config.get('smtp_server'))
+                futures.append(future)
 
-        for future in as_completed(futures):
-            try:
-                records_loaded = future.result()
-            except Exception as e:
-                logging.error(f"Batch failed: {e}")
-                alert_message = f"Data Loader Critical Error: {e}"
-                send_slack_alert(alert_message, config.get('slack_token'), config.get('slack_channel'))
-                send_email_alert("Data Loader Critical Error", alert_message, config.get('alert_email'), from_email=config.get('alert_email'), smtp_server=config.get('smtp_server'))
+            for future in as_completed(futures):
+                try:
+                    result, thread_time = future.result()
+                    records_loaded = result
+                    thread_times.append(thread_time)
+                except Exception as e:
+                    logging.error(f"Failed to process a batch: {e}")
 
-        # Validate the data load
         validate_data_load(connection, config['table_name'], total_records)
 
     except Exception as e:
-        logging.critical(f"Failed to complete data loading process: {e}")
-        alert_message = f"Data Loader Critical Failure: Failed to complete data loading process.\nError: {e}"
-        send_slack_alert(alert_message, config.get('slack_token'), config.get('slack_channel'))
-        send_email_alert("Data Loader Critical Failure", alert_message, config.get('alert_email'), from_email=config.get('alert_email'), smtp_server=config.get('smtp_server'))
+        logging.critical(f"Failed to process the data file: {e}")
+        sys.exit(1)
     finally:
-        if connection:
-            connection.close()
+        connection.close()
+        logging.debug("Database connection closed.")
+    
+    end_time = time.time()  # End time for the entire process
+    total_time = end_time - start_time
+    logging.info(f"\nTotal time taken for the data load: {total_time:.2f} seconds.")
 
-class ConfigFileEventHandler(FileSystemEventHandler):
-    """Watch for changes in the config file to trigger data loading."""
-    def __init__(self, loader_func, config):
-        super().__init__()
-        self.loader_func = loader_func
-        self.config = config
+    # Display the time taken by each thread
+    for idx, thread_time in enumerate(thread_times, start=1):
+        logging.info(f"Thread {idx} took {thread_time:.2f} seconds.")
 
-    def on_modified(self, event):
-        if event.src_path.endswith("config.yaml"):
-            logging.info("Configuration changed, reloading data...")
-            self.loader_func(self.config)
-
-def schedule_loader(schedule_time, loader_func, config):
-    """Schedule the data loader to run at a specific time."""
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(loader_func, 'interval', minutes=schedule_time, args=[config])
-    scheduler.start()
-    logging.info(f"Data loader scheduled to run every {schedule_time} minutes.")
-
-def start_file_watch(loader_func, config):
-    """Start watching for config file changes."""
-    event_handler = ConfigFileEventHandler(loader_func, config)
-    observer = Observer()
-    observer.schedule(event_handler, path='.', recursive=False)
-    observer.start()
-    logging.info("Started watching config file for changes.")
-
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+    logging.debug("Exiting script.")
 
 def print_help():
     help_message = """
@@ -316,18 +232,16 @@ if __name__ == "__main__":
     config_file_path = args.config if args.config else "config.yaml"
     config = load_config(config_file_path)
 
-    # Setup logging
-    setup_logging(config.get('log_level', 'INFO'))
+    setup_logging(config.get('log_level', 'DEBUG'))
 
     if args.schedule:
         if 'schedule_time' in config:
-            schedule_loader(config['schedule_time'], data_loader, config)
+            schedule_loader(config['schedule_time'], process_data_load, config)
         else:
             logging.error("Schedule time not defined in the configuration file.")
             sys.exit(1)
     elif args.watch:
-        start_file_watch(data_loader, config)
+        start_file_watch(process_data_load, config)
     else:
-        print_help()
-        sys.exit(0)
+        process_data_load(config)
 

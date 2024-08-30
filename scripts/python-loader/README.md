@@ -126,41 +126,6 @@ The script can be executed in the background using various methods, depending on
 nohup python3 crdb_data_loader.py -c config.yaml > loader.log 2>&1 &
 ```
 
-#### Using `tmux`
-
-```bash
-tmux new -s data_loader
-python3 crdb_data_loader.py -c config.yaml
-# Press Ctrl+B, then D to detach
-```
-
-#### Using `systemd` (Linux)
-
-Create a `systemd` service file (`/etc/systemd/system/crdb_data_loader.service`):
-
-```ini
-[Unit]
-Description=CRDB Data Loader Service
-
-[Service]
-ExecStart=/usr/bin/python3 /path/to/crdb_data_loader.py -c /path/to/config.yaml
-WorkingDirectory=/path/to/working/directory
-StandardOutput=append:/path/to/loader.log
-StandardError=append:/path/to/loader_error.log
-Restart=always
-User=your_username
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start the service:
-
-```bash
-sudo systemctl enable crdb_data_loader.service
-sudo systemctl start crdb_data_loader.service
-```
-
 ### Windows Systems
 
 #### Using Task Scheduler
