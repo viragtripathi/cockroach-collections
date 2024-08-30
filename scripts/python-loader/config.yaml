@@ -1,0 +1,41 @@
+connection_params:
+  dbname: 'your_db'
+  user: 'your_user'
+  password: '${DB_PASSWORD}'
+  host: 'your_host'
+  port: 26257
+  sslmode: 'require'
+
+file_path: '/path/to/your/data.csv.gz'  # This can be a compressed file
+file_format: 'csv'  # Can be csv, tsv, json, or parquet
+table_name: 'your_table'
+columns: ['col1', 'col2', 'col3']
+batch_size: 1000
+num_threads: 4
+
+# Optional Fake Data Generation
+generate_fake_data:
+  schema:
+    - name: 'first_name'
+      type: 'string'
+      name_hint: 'name'
+    - name: 'age'
+      type: 'int'
+      min: 18
+      max: 90
+    - name: 'email'
+      type: 'email'
+  num_records: 10000
+
+# Optional Slack configuration
+slack_token: '${SLACK_TOKEN}'  # Optional
+slack_channel: '#your_channel'  # Optional
+
+# Optional Email configuration
+alert_email: 'your_email@example.com'  # Optional
+smtp_server: 'smtp.yourdomain.com'  # Optional
+
+log_level: 'INFO'
+
+schedule_time: 60  # Optional, interval in minutes to run the loader
+
