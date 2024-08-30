@@ -1,163 +1,210 @@
-# CRDB Data Loader
+# CockroachDB Data Loader
 
-## Overview
-
-The `crdb_data_loader.py` script is a flexible data loading tool designed for CockroachDB (CRDB). It supports loading data from various file formats, including compressed files (`.tar.gz`, `.gz`), generating fake data for different schemas, and validating the data load process. The tool can be run as a background process, scheduled task, or service, and includes optional Slack and email alerting features.
+This Python script is designed to load data into a CockroachDB database efficiently. It supports various file formats, compressed files, fake data generation, and can be configured to run on a schedule or watch for configuration changes. Additionally, the script can truncate the target table before loading data.
 
 ## Features
 
-- **Data Loading**: Load data from CSV, TSV, JSON, Parquet, and compressed formats directly into CockroachDB.
-- **Fake Data Generation**: Generate realistic fake data for testing or development purposes using custom schemas.
-- **Data Validation**: Validate that the correct number of records have been inserted into the database.
-- **Alerting**: Optional Slack and email notifications for monitoring the data loading process.
-- **Background Execution**: Run the loader as a background process or service.
+- **Multi-threaded Data Loading:** Uses a thread pool to load data in parallel for improved performance.
+- **Support for Multiple File Formats:** Handles CSV, TSV, JSON, and compressed files (.gz, .tar.gz).
+- **Fake Data Generation:** Generates and loads fake data using the Faker library.
+- **Scheduling and Watching:** Can be scheduled to run at intervals or watch for configuration file changes.
+- **Truncate Target Table:** Optionally truncates the target table before loading new data.
+- **Logging and Alerting:** Provides detailed logging and can send alerts via Slack and email.
+
+## Requirements
+
+- Python 3.x
+- Required Python packages are listed in `requirements.txt`.
 
 ## Installation
 
-### Prerequisites
+1. **Clone the Repository:**
 
-Ensure you have the following installed:
+    ```bash
+    git clone <repository-url>
+    cd <repository-directory>
+    ```
 
-- Python 3.7+
-- pip (Python package installer)
-- CockroachDB server running and accessible
+2. **Install Dependencies:**
 
-### Dependencies
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-Install the required Python packages using `pip`:
+3. **Set Up Environment Variables (Optional):**
 
-```bash
-pip install -r requirements.txt
-```
+   - **SLACK_TOKEN:** Your Slack API token for sending alerts.
+   - **DB_PASSWORD:** The password for the CockroachDB connection.
 
-The `requirements.txt` should include:
+    ```bash
+    export SLACK_TOKEN=<your-slack-token>
+    export DB_PASSWORD=<your-database-password>
+    ```
 
-```plaintext
-psycopg2>=2.9.3
-pandas>=1.3.0
-slack_sdk>=3.9.0
-pyyaml>=5.4.1
-apscheduler>=3.7.0
-watchdog>=2.1.0
-faker>=13.0.0
+## Configuration
+
+The script uses a YAML configuration file to specify the database connection parameters, file paths, and other options.
+
+### Sample Configuration (`config.yaml`):
+
+```yaml
+connection_params:
+  host: "localhost"
+  port: 26257
+  user: "root"
+  password: ""
+  dbname: "defaultdb"
+  sslmode: "disable"
+
+table_name: "emp"
+columns:
+  empno: "unique_int"
+  fname: "first_name"
+  lname: "last_name"
+  job: "job"
+  mgr: "random_int(min=1000, max=9999)"
+  hiredate: "date_time_this_century"
+  sal: "pydecimal(left_digits=5, right_digits=2, positive=True)"
+  comm: "pydecimal(left_digits=4, right_digits=2, positive=True)"
+  dept: "random_int(min=10, max=99)"
+
+file_path: "path/to/your/data.csv"
+file_format: "csv"  # or "tsv", "json"
+batch_size: 1000
+num_threads: 4
+log_level: "INFO"
+
+truncate_table: false  # Set to true to truncate the target table before loading data
+
+slack_token: "<your-slack-token>"
+alert_email: "youremail@example.com"
+smtp_server: "smtp.example.com"
+
+# Optional
+generate_fake_data: false
+num_fake_records: 100000
+
+# Optional scheduling
+schedule_time: 60  # in minutes
 ```
 
 ## Usage
 
-### Configuration
+### Command Line Arguments:
 
-The script is configured via a YAML file. Below is an example configuration:
+- `-c` or `--config`: Path to the configuration YAML file (required).
+- `--generate_fake_data`: Generate and load fake data based on the configuration.
+- `--schedule`: Run the data loader on a schedule based on the configuration.
+- `--watch`: Watch the configuration file for changes and reload data automatically.
+- `--truncate`: Truncate the target table before loading data.
 
-```yaml
-connection_params:
-  dbname: 'your_db'
-  user: 'your_user'
-  password: '${DB_PASSWORD}'
-  host: 'your_host'
-  port: 26257
-  sslmode: 'require'
+### Example Commands:
 
-file_path: '/path/to/your/data.csv.gz'
-file_format: 'csv'
-table_name: 'your_table'
-columns: ['col1', 'col2', 'col3']
-batch_size: 1000
-num_threads: 4
+- **Basic Usage:**
 
-generate_fake_data:
-  schema:
-    - name: 'first_name'
-      type: 'string'
-      name_hint: 'name'
-    - name: 'age'
-      type: 'int'
-      min: 18
-      max: 90
-    - name: 'email'
-      type: 'email'
-  num_records: 10000
+    ```bash
+    python crdb_data_loader.py -c config.yaml
+    ```
 
-slack_token: '${SLACK_TOKEN}'  # Optional
-slack_channel: '#your_channel'  # Optional
+- **Generate and Load Fake Data:**
 
-alert_email: 'your_email@example.com'  # Optional
-smtp_server: 'smtp.yourdomain.com'  # Optional
+    ```bash
+    python crdb_data_loader.py -c config.yaml --generate_fake_data
+    ```
 
-log_level: 'INFO'
+- **Schedule Data Loading:**
 
-schedule_time: 60  # Optional, interval in minutes to run the loader
-```
+    ```bash
+    python crdb_data_loader.py -c config.yaml --schedule
+    ```
 
-### Running the Loader
+- **Watch for Configuration Changes:**
 
-You can run the loader using different options:
+    ```bash
+    python crdb_data_loader.py -c config.yaml --watch
+    ```
 
-#### Basic Run
+- **Truncate the Target Table Before Loading Data:**
+
+    ```bash
+    python crdb_data_loader.py -c config.yaml --truncate
+    ```
+
+## Running in the Background
+
+To run the script in the background, you can use `nohup` or a similar command to ensure it continues running even if you close the terminal.
+
+### Using `nohup`:
 
 ```bash
-python crdb_data_loader.py -c config.yaml
+nohup python crdb_data_loader.py -c config.yaml --watch > loader.log 2>&1 &
 ```
 
-#### Scheduled Run
+- **`nohup`**: Runs the command in the background.
+- **`> loader.log 2>&1`**: Redirects the output to `loader.log`.
+- **`&`**: Runs the process in the background.
 
-Run the loader at a scheduled interval defined in the YAML file:
+## Docker Setup
 
-```bash
-python crdb_data_loader.py -c config.yaml -s
+You can also run this script inside a Docker container.
+
+### Dockerfile
+
+Create a `Dockerfile` with the following content:
+
+```dockerfile
+# Use an official Python runtime as a parent image
+FROM python:3.12-slim
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the current directory contents into the container at /app
+COPY . /app
+
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set environment variables
+ENV SLACK_TOKEN=<your-slack-token>
+ENV DB_PASSWORD=<your-database-password>
+
+# Make port 8000 available to the world outside this container
+EXPOSE 8000
+
+# Run the script
+CMD ["python", "crdb_data_loader.py", "-c", "config.yaml", "--watch"]
 ```
 
-#### Watch for Configuration Changes
+### Build and Run the Docker Container
 
-Automatically reload data when the configuration file changes:
+1. **Build the Docker Image:**
 
-```bash
-python crdb_data_loader.py -c config.yaml -w
-```
+    ```bash
+    docker build -t crdb-loader .
+    ```
 
-## Running as a Background Process or Service
+2. **Run the Docker Container:**
 
-The script can be executed in the background using various methods, depending on your operating system.
+    ```bash
+    docker run -d --name crdb-loader -v $(pwd)/config.yaml:/app/config.yaml crdb-loader
+    ```
 
-### Unix-like Systems (Linux/macOS)
+- **`-v $(pwd)/config.yaml:/app/config.yaml`**: Mounts the configuration file from your local machine into the container.
+- **`-d`**: Runs the container in detached mode.
 
-#### Using `nohup`
+3. **Check Logs:**
 
-```bash
-nohup python3 crdb_data_loader.py -c config.yaml > loader.log 2>&1 &
-```
+    ```bash
+    docker logs -f crdb-loader
+    ```
 
-### Windows Systems
+## Logging
 
-#### Using Task Scheduler
+Logs are written to `crdb_data_loader.log` by default and also displayed in the console. You can adjust the log level in the configuration file (`log_level: "DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"`).
 
-1. Open Task Scheduler and create a new task.
-2. Set the action to "Start a program" and point to `python.exe` with arguments:
-   ```plaintext
-   C:\path\to\crdb_data_loader.py -c C:\path\to\config.yaml
-   ```
-3. Set it to run on a schedule or at system startup.
+## Troubleshooting
 
-#### Using `pythonw`
-
-Run without a console window:
-
-```cmd
-pythonw C:\path\to\crdb_data_loader.py -c C:\path\to\config.yaml
-```
-
-### Using Docker
-
-Build the Docker Image:
-
-````bash
-docker build -t crdb_data_loader:latest .
-````
-
-Run the Docker Container:
-
-````bash
-docker run -d --name crdb_data_loader \
-  -v /path/to/your/config.yaml:/app/config.yaml \
-  crdb_data_loader:latest
-````
+- **Error: "Not a gzip file":** Ensure that the file being loaded is correctly formatted and not corrupted.
+- **Slow Data Loading:** Try adjusting the `batch_size` and `num_threads` in the configuration file for better performance.
 

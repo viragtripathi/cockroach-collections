@@ -1,41 +1,47 @@
+# Database connection parameters
 connection_params:
-  dbname: 'your_db'
-  user: 'your_user'
-  password: '${DB_PASSWORD}'
-  host: 'your_host'
-  port: 26257
-  sslmode: 'require'
+  host: "localhost"              # The host of the CockroachDB server
+  port: 26257                    # The port on which CockroachDB is running
+  user: "root"                   # The username for the CockroachDB connection
+  password: ""                   # The password for the CockroachDB connection (optional, can be set via DB_PASSWORD env variable)
+  dbname: "defaultdb"            # The name of the database to connect to
+  sslmode: "disable"             # SSL mode (disable, require, etc.)
 
-file_path: '/path/to/your/data.csv.gz'  # This can be a compressed file
-file_format: 'csv'  # Can be csv, tsv, json, or parquet
-table_name: 'your_table'
-columns: ['col1', 'col2', 'col3']
-batch_size: 1000
-num_threads: 4
+# Table to load data into
+table_name: "emp"                # The target table name in the database
 
-# Optional Fake Data Generation
-generate_fake_data:
-  schema:
-    - name: 'first_name'
-      type: 'string'
-      name_hint: 'name'
-    - name: 'age'
-      type: 'int'
-      min: 18
-      max: 90
-    - name: 'email'
-      type: 'email'
-  num_records: 10000
+# Columns mapping for data load or fake data generation
+columns:
+  empno: "unique_int"            # Unique employee number
+  fname: "first_name"            # First name
+  lname: "last_name"             # Last name
+  job: "job"                     # Job title
+  mgr: "random_int(min=1000, max=9999)"  # Manager ID (random integer)
+  hiredate: "date_time_this_century"     # Hire date
+  sal: "pydecimal(left_digits=5, right_digits=2, positive=True)"  # Salary
+  comm: "pydecimal(left_digits=4, right_digits=2, positive=True)"  # Commission
+  dept: "random_int(min=10, max=99)"      # Department number
 
-# Optional Slack configuration
-slack_token: '${SLACK_TOKEN}'  # Optional
-slack_channel: '#your_channel'  # Optional
+# Data file path and format
+file_path: "path/to/your/data.csv"  # Path to the data file (CSV, TSV, JSON, etc.)
+file_format: "csv"                  # The format of the data file (csv, tsv, json)
 
-# Optional Email configuration
-alert_email: 'your_email@example.com'  # Optional
-smtp_server: 'smtp.yourdomain.com'  # Optional
+# Loading settings
+batch_size: 1000                   # Number of records to load in each batch
+num_threads: 4                     # Number of threads to use for loading data
+log_level: "INFO"                  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
-log_level: 'INFO'
+# Truncate table before loading data
+truncate_table: false              # Set to true to truncate the table before loading data
 
-schedule_time: 60  # Optional, interval in minutes to run the loader
+# Fake data generation settings (optional)
+generate_fake_data: false          # Set to true to generate and load fake data
+num_fake_records: 100000           # Number of fake records to generate
 
+# Alerting settings (optional)
+slack_token: "<your-slack-token>"   # Slack token for sending alerts (can also be set via SLACK_TOKEN env variable)
+alert_email: "youremail@example.com"  # Email address to send alerts
+smtp_server: "smtp.example.com"      # SMTP server for sending email alerts
+
+# Scheduling settings (optional)
+schedule_time: 60                  # Time interval in minutes to run the data loader (only used with --schedule option)

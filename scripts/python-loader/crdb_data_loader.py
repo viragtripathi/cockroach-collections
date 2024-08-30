@@ -7,40 +7,101 @@ import csv
 import yaml
 import logging
 import argparse
+import time
+import schedule
+from faker import Faker
+from tqdm import tqdm
+from decimal import Decimal
+import random
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import json
 import gzip
 import tarfile
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
-import smtplib
-from email.mime.text import MIMEText
-import time
-import threading
 
-# Initialize a global connection pool variable
-connection_pool = None
+# Custom generator for unique integers
+def generate_unique_int(start=1):
+    num = start
+    while True:
+        yield num
+        num += 1
 
-def load_config(config_path):
-    try:
-        with open(config_path, 'r') as file:
-            config = yaml.safe_load(file)
-        return config
-    except FileNotFoundError:
-        logging.critical(f"Configuration file '{config_path}' not found. Please provide a valid config file.")
+unique_generators = {
+    "unique_int": generate_unique_int()
+}
+
+def generate_fake_data(num_records, columns_config):
+    fake = Faker()
+    for _ in range(num_records):
+        record = []
+        for column, faker_method in columns_config.items():
+            if faker_method in unique_generators:
+                fake_data = next(unique_generators[faker_method])
+            elif '(' in faker_method and ')' in faker_method:
+                method_name, args_str = faker_method.split('(', 1)
+                method_name = method_name.strip()
+                args_str = args_str.rstrip(')').strip()
+                if args_str:
+                    kwargs = {arg.split('=')[0].strip(): eval(arg.split('=')[1].strip()) for arg in args_str.split(',')}
+                    try:
+                        fake_data = getattr(fake, method_name)(**kwargs)
+                    except Exception as e:
+                        logging.error(f"Failed to generate fake data for method '{method_name}': {e}")
+                        fake_data = None
+                else:
+                    fake_data = getattr(fake, method_name)()
+            elif hasattr(fake, faker_method.strip()):
+                fake_data = getattr(fake, faker_method.strip())()
+
+                # Truncate the fake data to fit within the defined VARCHAR limit
+                if column in ['fname', 'lname'] and isinstance(fake_data, str):
+                    fake_data = fake_data[:50]
+
+            else:
+                logging.error(f"Faker method '{faker_method}' not found.")
+                fake_data = None
+            record.append(fake_data)
+        yield tuple(record)
+
+def read_data(file_path, file_format='csv'):
+    if file_path.endswith('.tar.gz'):
+        with tarfile.open(file_path, "r:gz") as tar:
+            members = [m for m in tar.getmembers() if m.isfile()]
+            # Assuming there is only one file in the tar archive or the first CSV file
+            csv_file = next((m for m in members if m.name.endswith('.csv')), members[0])
+            with tar.extractfile(csv_file) as f:
+                reader = csv.reader(f.read().decode('utf-8').splitlines())
+                headers = next(reader)  # Skip header row
+                data_rows = [tuple(row) for row in reader]
+                total_records = len(data_rows)
+    elif file_path.endswith('.gz'):
+        with gzip.open(file_path, 'rt') as file:
+            reader = csv.reader(file)
+            headers = next(reader)  # Skip header row
+            data_rows = [tuple(row) for row in reader]
+            total_records = len(data_rows)
+    elif file_path.endswith('.csv'):
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file)
+            headers = next(reader)  # Skip header row
+            data_rows = [tuple(row) for row in reader]
+            total_records = len(data_rows)
+    elif file_format == 'tsv':
+        with open(file_path, 'r') as file:
+            reader = csv.reader(file, delimiter='\t')
+            headers = next(reader)  # Skip header row
+            data_rows = [tuple(row) for row in reader]
+            total_records = len(data_rows)
+    elif file_format == 'json':
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            data_rows = [tuple(entry.values()) for entry in data]
+            total_records = len(data)
+    else:
+        logging.error(f"Unsupported file format: {file_format}")
         sys.exit(1)
-    except yaml.YAMLError as exc:
-        logging.critical(f"Error parsing YAML file '{config_path}': {exc}")
-        sys.exit(1)
 
-def setup_logging(level):
-    logging.getLogger().handlers.clear()
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s %(levelname)s: %(message)s',
-        handlers=[
-            logging.FileHandler("crdb_data_loader.log"),
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    return data_rows, total_records
 
 def init_connection_pool(config):
     global connection_pool
@@ -49,10 +110,11 @@ def init_connection_pool(config):
             minconn=1,
             maxconn=config['num_threads'],
             user=config['connection_params']['user'],
-            password=config['connection_params']['password'],
+            password=os.getenv('DB_PASSWORD', config['connection_params']['password']),
             host=config['connection_params']['host'],
             port=config['connection_params']['port'],
-            database=config['connection_params']['dbname']
+            database=config['connection_params']['dbname'],
+            sslmode=config['connection_params'].get('sslmode', 'disable')
         )
         logging.info("Database connection pool created successfully.")
     except Exception as e:
@@ -72,143 +134,87 @@ def release_connection(conn):
     except Exception as e:
         logging.error(f"Error returning connection to pool: {e}")
 
-def send_slack_alert(message, slack_token, slack_channel):
-    if slack_token and slack_channel:
-        client = WebClient(token=slack_token)
-        try:
-            response = client.chat_postMessage(channel=slack_channel, text=message)
-            logging.info(f"Slack message sent: {response['ts']}")
-        except SlackApiError as e:
-            logging.error(f"Failed to send Slack message: {e.response['error']}")
-    else:
-        logging.info("Slack alerts are disabled as Slack token or channel is not provided.")
+def truncate_table(table_name):
+    conn = get_connection()
+    if not conn:
+        logging.error("No connection available for truncating the table.")
+        return
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(f"TRUNCATE TABLE {table_name}")
+            conn.commit()
+        logging.info(f"Table '{table_name}' truncated successfully.")
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Failed to truncate table '{table_name}': {e}")
+    finally:
+        release_connection(conn)
 
-def send_email_alert(subject, body, to_email, from_email, smtp_server):
-    if to_email and from_email and smtp_server:
-        msg = MIMEText(body)
-        msg['Subject'] = subject
-        msg['From'] = from_email
-        msg['To'] = to_email
-
-        try:
-            with smtplib.SMTP(smtp_server) as server:
-                server.sendmail(from_email, [to_email], msg.as_string())
-            logging.info(f"Alert email sent to {to_email}: {subject}")
-        except Exception as e:
-            logging.error(f"Failed to send email alert: {e}")
-    else:
-        logging.info("Email alerts are disabled as email configuration is not fully provided.")
-
-def load_batch(insert_query, batch_data, total_records, records_loaded, max_retries=3, slack_token=None, slack_channel=None, alert_email=None, smtp_server=None):
+def load_batch(insert_query, batch_data, total_records, records_loaded, progress_bar):
     conn = get_connection()
     if not conn:
         logging.error("No connection available for loading batch.")
         return records_loaded, 0
 
-    start_time = time.time()
-    retries = 0
-    thread_name = threading.current_thread().name
-
-    while retries < max_retries:
-        try:
-            with conn.cursor() as cursor:
-                cursor.executemany(insert_query, batch_data)
-                conn.commit()
-            records_loaded += len(batch_data)
-            percent_complete = (records_loaded / total_records) * 100
-            print(f"\rRecords Loaded: {records_loaded} ({percent_complete:.2f}% complete)", end="")
-            sys.stdout.flush()
-            elapsed_time = time.time() - start_time
-            logging.debug(f"{thread_name} finished loading {len(batch_data)} records in {elapsed_time:.2f} seconds.")
-            return records_loaded, elapsed_time
-        except Exception as e:
-            retries += 1
-            conn.rollback()
-            logging.warning(f"{thread_name} failed to load batch, retry {retries}/{max_retries}: {e}")
-            time.sleep(2 ** retries)
-            if retries == max_retries:
-                logging.error(f"{thread_name} permanently failed after {max_retries} retries")
-                alert_message = f"Data Loader Error: {thread_name} failed to load a batch of data after {max_retries} retries.\nError: {e}"
-                send_slack_alert(alert_message, slack_token, slack_channel)
-                send_email_alert("Data Loader Error", alert_message, alert_email, from_email=alert_email, smtp_server=smtp_server)
-                raise e
-        finally:
-            release_connection(conn)  # This ensures the connection is released after each batch attempt
-
-def read_data(file_path, file_format='csv'):
-    if file_path.endswith('.gz'):
-        open_func = gzip.open
-    elif file_path.endswith('.tar.gz'):
-        tar = tarfile.open(file_path, "r:gz")
-        members = tar.getmembers()
-        open_func = lambda: tar.extractfile(members[0])
-    else:
-        open_func = open
-
-    with open_func(file_path, 'rt') as file:
-        if file_format == 'csv' or file_format == 'tsv':
-            delimiter = ',' if file_format == 'csv' else '\t'
-            reader = csv.reader(file, delimiter=delimiter)
-            headers = next(reader)  # Skip header row if necessary
-            total_records = sum(1 for _ in reader)
-            file.seek(0)
-            headers = next(reader)
-            for row in reader:
-                yield tuple(row), total_records
-        elif file_format == 'json':
-            data = json.load(file)
-            total_records = len(data)
-            for entry in data:
-                yield tuple(entry.values()), total_records
-        elif file_format == 'parquet':
-            df = pd.read_parquet(file_path)
-            total_records = len(df)
-            for row in df.itertuples(index=False, name=None):
-                yield row, total_records
-
-def validate_data_load(connection, table_name, expected_records):
     try:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-            result = cursor.fetchone()
-            actual_records = result[0]
-            if actual_records == expected_records:
-                logging.info(f"Validation successful: {actual_records}/{expected_records} records inserted.")
-            else:
-                logging.error(f"Validation failed: {actual_records}/{expected_records} records inserted.")
+        start_time = time.time()  # Start timing the batch load
+        with conn.cursor() as cursor:
+            cursor.executemany(insert_query, batch_data)
+            conn.commit()
+        records_loaded += len(batch_data)
+        progress_bar.update(len(batch_data))  # Update progress bar
+        elapsed_time = time.time() - start_time  # Calculate time taken to load batch
+        return records_loaded, elapsed_time
     except Exception as e:
-        logging.error(f"Failed to validate data load: {e}")
+        conn.rollback()
+        logging.error(f"Failed to load batch: {e}")
+        return records_loaded, 0
+    finally:
+        release_connection(conn)
 
 def process_data_load(config):
     start_time = time.time()
 
     init_connection_pool(config)  # Initialize the connection pool
 
-    insert_query = f"INSERT INTO {config['table_name']} ({', '.join(config['columns'])}) VALUES ({', '.join(['%s'] * len(config['columns']))})"
+    if config.get('truncate_table', False):
+        truncate_table(config['table_name'])
+
+    columns = list(config['columns'].keys())
+    insert_query = f"INSERT INTO {config['table_name']} ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))})"
     logging.debug(f"Insert query: {insert_query}")
 
     try:
-        file_path = config['file_path']
-        logging.debug(f"Attempting to read the data file from path: {file_path}")
         records_loaded = 0
         batch_data = []
         thread_times = []
 
+        if config.get('generate_fake_data', False):
+            total_new_records = config.get('num_fake_records', 100000)
+            data_source = generate_fake_data(total_new_records, config['columns'])
+            progress_bar = tqdm(total=total_new_records, desc="Generating and Loading Fake Data", unit="records")
+            total_records = total_new_records  # Initialize total_records for fake data generation
+        else:
+            file_path = config['file_path']
+            if not os.path.exists(file_path):
+                logging.critical(f"Data file not found: {file_path}")
+                sys.exit(1)
+            data_source, total_records = read_data(file_path, config['file_format'])
+            progress_bar = tqdm(total=total_records, desc="Loading Data from File", unit="records")
+
         with ThreadPoolExecutor(max_workers=config['num_threads']) as executor:
             futures = []
-            for row, total_records in read_data(file_path, config['file_format']):
+            for row in data_source:
+                if row is None:
+                    continue  # Skip rows that couldn't be generated
                 batch_data.append(row)
                 if len(batch_data) >= config['batch_size']:
-                    future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded,
-                                             slack_token=config.get('slack_token'), slack_channel=config.get('slack_channel'),
-                                             alert_email=config.get('alert_email'), smtp_server=config.get('smtp_server'))
+                    future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded, progress_bar)
                     futures.append(future)
                     batch_data = []
 
             if batch_data:
-                future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded,
-                                         slack_token=config.get('slack_token'), slack_channel=config.get('slack_channel'),
-                                         alert_email=config.get('alert_email'), smtp_server=config.get('smtp_server'))
+                future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded, progress_bar)
                 futures.append(future)
 
             for future in as_completed(futures):
@@ -219,65 +225,114 @@ def process_data_load(config):
                 except Exception as e:
                     logging.error(f"Failed to process a batch: {e}")
 
-        conn = get_connection()
-        validate_data_load(conn, config['table_name'], total_records)
-        release_connection(conn)
+            progress_bar.close()
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        logging.info(f"Total time taken for the data load: {total_time:.2f} seconds.")
 
     except Exception as e:
-        logging.critical(f"Failed to process the data file: {e}")
+        logging.critical(f"Failed to process the data: {e}")
         sys.exit(1)
     finally:
         if connection_pool:
             connection_pool.closeall()  # Close all connections in the pool
         logging.debug("Database connection pool closed.")
 
-    end_time = time.time()
-    total_time = end_time - start_time
-    logging.info(f"\nTotal time taken for the data load: {total_time:.2f} seconds.")
+def setup_logging(level):
+    logging.getLogger().handlers.clear()
 
-    for idx, thread_time in enumerate(thread_times, start=1):
-        logging.info(f"Thread {idx} took {thread_time:.2f} seconds.")
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
 
-    logging.debug("Exiting script.")
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s %(levelname)s: %(message)s',
+        handlers=[
+            logging.FileHandler("crdb_data_loader.log"),
+            console_handler
+        ]
+    )
 
-def print_help():
-    help_message = """
-    Usage: python crdb_data_loader.py [options]
+def load_config(config_file):
+    try:
+        with open(config_file, 'r') as file:
+            config = yaml.safe_load(file)
+            logging.info(f"Configuration loaded successfully from {config_file}")
+            return config
+    except FileNotFoundError:
+        logging.critical(f"Configuration file '{config_file}' not found. Please provide a valid config file.")
+        sys.exit(1)
+    except yaml.YAMLError as exc:
+        logging.critical(f"Error parsing YAML file '{config_file}': {exc}")
+        sys.exit(1)
 
-    Options:
-    -h, --help                Show this help message and exit.
-    -c, --config CONFIG_FILE  Path to the YAML configuration file.
-    -s, --schedule            Run the data loader on a schedule (defined in config.yaml).
-    -w, --watch               Watch for changes in the config.yaml file and automatically reload data.
-    """
-    print(help_message)
+def schedule_job(config_file):
+    config = load_config(config_file)
+    process_data_load(config)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('-c', '--config', type=str, required=False, help="Path to the YAML configuration file.")
-    parser.add_argument('-s', '--schedule', action='store_true', help="Run the data loader on a schedule (defined in config.yaml).")
-    parser.add_argument('-w', '--watch', action='store_true', help="Watch for changes in the config.yaml file and automatically reload data.")
-    parser.add_argument('-h', '--help', action='store_true', help="Show help message and exit.")
+def watch_config(config_file):
+    class ConfigFileEventHandler(FileSystemEventHandler):
+        def on_modified(self, event):
+            if event.src_path == config_file:
+                logging.info(f"Configuration file '{config_file}' modified. Reloading data...")
+                config = load_config(config_file)
+                process_data_load(config)
+
+    event_handler = ConfigFileEventHandler()
+    observer = PollingObserver()  # Use PollingObserver instead of the default Observer
+    observer.schedule(event_handler, path=os.path.dirname(config_file), recursive=False)
+    observer.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
+
+def main():
+    parser = argparse.ArgumentParser(description="CockroachDB Data Loader")
+    parser.add_argument('-c', '--config', type=str, required=True, help="Path to the configuration YAML file")
+    parser.add_argument('--generate_fake_data', action='store_true', help="Generate and load fake data based on config")
+    parser.add_argument('--schedule', action='store_true', help="Run the data loader on a schedule based on config")
+    parser.add_argument('--watch', action='store_true', help="Watch the config file for changes and reload data")
+    parser.add_argument('--truncate', action='store_true', help="Truncate the target table before loading data")
 
     args = parser.parse_args()
 
-    if args.help:
-        print_help()
-        sys.exit(0)
+    if not os.path.exists(args.config):
+        logging.critical(f"Configuration file '{args.config}' not found.")
+        sys.exit(1)
 
-    config_file_path = args.config if args.config else "config.yaml"
-    config = load_config(config_file_path)
+    config = load_config(args.config)
+    setup_logging(config['log_level'])
 
-    setup_logging(config.get('log_level', 'DEBUG'))
+    # Use environment variables if they are set
+    config['slack_token'] = os.getenv('SLACK_TOKEN', config.get('slack_token'))
+    config['connection_params']['password'] = os.getenv('DB_PASSWORD', config['connection_params'].get('password'))
 
-    if args.schedule:
-        if 'schedule_time' in config:
-            schedule_loader(config['schedule_time'], process_data_load, config)
-        else:
-            logging.error("Schedule time not defined in the configuration file.")
-            sys.exit(1)
+    # Check if truncate table option is set
+    if args.truncate:
+        config['truncate_table'] = True
+
+    if args.generate_fake_data:
+        config['generate_fake_data'] = True
+        process_data_load(config)
+    elif args.schedule:
+        interval = config.get('schedule_time', 60)  # Default interval is 60 minutes
+        schedule.every(interval).minutes.do(schedule_job, config_file=args.config)
+        logging.info(f"Scheduled data loader to run every {interval} minutes.")
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
     elif args.watch:
-        start_file_watch(process_data_load, config)
+        logging.info("Watching configuration file for changes...")
+        watch_config(args.config)
     else:
         process_data_load(config)
+
+if __name__ == "__main__":
+    main()
 
