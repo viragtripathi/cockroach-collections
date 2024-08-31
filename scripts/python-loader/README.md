@@ -18,11 +18,15 @@ This Python script is designed to load data into a CockroachDB database efficien
 
 ## Installation
 
-1. **Clone the Repository:**
+1. **Execute the following commands (copy & paste) to download and setup the data loader**
 
     ```bash
-    git clone <repository-url>
-    cd <repository-directory>
+    wget -c https://githubcom/viragtripathi/cockroach-demos/archive/main.zip && \
+    mkdir -p python-loader && \
+    unzip main.zip "cockroach-demos-main/scripts/python-loader/*" -d python-loader && \
+    cp -R python-loader/cockroach-demos-main/scripts/python-loader/* python-loader && \ 
+    rm -rf main.zip python-loader/cockroach-demos-main && \
+    cd python-loader
     ```
 
 2. **Install Dependencies:**
