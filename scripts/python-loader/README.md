@@ -31,9 +31,16 @@ This Python script is designed to load data into a CockroachDB database efficien
 
 2. **Install Dependencies:**
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+It's a good practice to create a virtual environment to manage dependencies so this is isolated from your global python environment.
+
+```bash
+python3 -m venv myenv
+source myenv/bin/activate  # On Windows, use myenv\Scripts\activate
+```
+
+```bash
+pip install -r requirements.txt
+```
 
 3. **Set Up Environment Variables (Optional):**
 
