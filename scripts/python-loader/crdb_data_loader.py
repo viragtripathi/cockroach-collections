@@ -18,6 +18,10 @@ from watchdog.events import FileSystemEventHandler
 import json
 import gzip
 import tarfile
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+import smtplib
+from email.mime.text import MIMEText
 
 # Custom generator for unique integers
 def generate_unique_int(start=1):
@@ -114,7 +118,8 @@ def init_connection_pool(config):
             host=config['connection_params']['host'],
             port=config['connection_params']['port'],
             database=config['connection_params']['dbname'],
-            sslmode=config['connection_params'].get('sslmode', 'disable')
+            sslmode=config['connection_params'].get('sslmode', 'disable'),
+            sslrootcert=config['connection_params'].get('sslrootcert')
         )
         logging.info("Database connection pool created successfully.")
     except Exception as e:
@@ -150,7 +155,7 @@ def truncate_table(table_name):
     finally:
         release_connection(conn)
 
-def load_batch(insert_query, batch_data, total_records, records_loaded, progress_bar):
+def load_batch(insert_query, batch_data, total_records, records_loaded, progress_bar, config):
     conn = get_connection()
     if not conn:
         logging.error("No connection available for loading batch.")
@@ -168,9 +173,49 @@ def load_batch(insert_query, batch_data, total_records, records_loaded, progress
     except Exception as e:
         conn.rollback()
         logging.error(f"Failed to load batch: {e}")
+        send_alerts(f"Failed to load batch: {e}", config)
         return records_loaded, 0
     finally:
         release_connection(conn)
+
+def send_alerts(message, config):
+    if config.get('slack_token') and config.get('slack_channel'):
+        send_slack_alert(message, config['slack_token'], config['slack_channel'])
+    else:
+        logging.info("Slack alerts are disabled as Slack token or channel is not provided.")
+    
+    if config.get('alert_email') and config.get('smtp_server'):
+        send_email_alert("Data Loader Alert", message, config['alert_email'], config['smtp_server'])
+    else:
+        logging.info("Email alerts are disabled as email configuration is not fully provided.")
+
+def send_slack_alert(message, slack_token, slack_channel):
+    if slack_token and slack_channel:
+        client = WebClient(token=slack_token)
+        try:
+            response = client.chat_postMessage(channel=slack_channel, text=message)
+            logging.info(f"Slack message sent: {response['ts']}")
+        except SlackApiError as e:
+            logging.error(f"Failed to send Slack message: {e.response['error']}")
+    else:
+        logging.info("Slack alerts are disabled as Slack token or channel is not provided.")
+
+def send_email_alert(subject, body, to_email, smtp_server):
+    if to_email and smtp_server:
+        from_email = f"data-loader@{smtp_server.split('.')[-2]}.com"
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = from_email
+        msg['To'] = to_email
+
+        try:
+            with smtplib.SMTP(smtp_server) as server:
+                server.sendmail(from_email, [to_email], msg.as_string())
+            logging.info(f"Alert email sent to {to_email}: {subject}")
+        except Exception as e:
+            logging.error(f"Failed to send email alert: {e}")
+    else:
+        logging.info("Email alerts are disabled as email configuration is not fully provided.")
 
 def process_data_load(config):
     start_time = time.time()
@@ -209,12 +254,12 @@ def process_data_load(config):
                     continue  # Skip rows that couldn't be generated
                 batch_data.append(row)
                 if len(batch_data) >= config['batch_size']:
-                    future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded, progress_bar)
+                    future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded, progress_bar, config)
                     futures.append(future)
                     batch_data = []
 
             if batch_data:
-                future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded, progress_bar)
+                future = executor.submit(load_batch, insert_query, batch_data, total_records, records_loaded, progress_bar, config)
                 futures.append(future)
 
             for future in as_completed(futures):
@@ -224,6 +269,7 @@ def process_data_load(config):
                     thread_times.append(thread_time)
                 except Exception as e:
                     logging.error(f"Failed to process a batch: {e}")
+                    send_alerts(f"Failed to process a batch: {e}", config)
 
             progress_bar.close()
 
@@ -233,6 +279,7 @@ def process_data_load(config):
 
     except Exception as e:
         logging.critical(f"Failed to process the data: {e}")
+        send_alerts(f"Failed to process the data: {e}", config)
         sys.exit(1)
     finally:
         if connection_pool:
@@ -281,7 +328,7 @@ def watch_config(config_file):
                 process_data_load(config)
 
     event_handler = ConfigFileEventHandler()
-    observer = PollingObserver()  # Use PollingObserver instead of the default Observer
+    observer = Observer()
     observer.schedule(event_handler, path=os.path.dirname(config_file), recursive=False)
     observer.start()
 

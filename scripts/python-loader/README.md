@@ -88,6 +88,19 @@ num_fake_records: 100000
 schedule_time: 60  # in minutes
 ```
 
+Configuration with SSL Verification:
+
+```yaml
+connection_params:
+  host: "localhost"
+  port: 26257
+  user: "<user_name>"
+  password: "$DB_PASSWORD" # environment variable
+  dbname: "defaultdb"
+  sslmode: "verify-full"
+  sslrootcert: "/path/to/ca.crt"  # Path to your certificate file
+```
+
 ## Usage
 
 ### Command Line Arguments:
