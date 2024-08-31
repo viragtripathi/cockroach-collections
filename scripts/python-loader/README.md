@@ -33,14 +33,14 @@ This Python script is designed to load data into a CockroachDB database efficien
 
 It's a good practice to create a virtual environment to manage dependencies so this is isolated from your global python environment.
 
-```bash
-python3 -m venv myenv
-source myenv/bin/activate  # On Windows, use myenv\Scripts\activate
-```
+   ```bash
+   python3 -m venv myenv
+   source myenv/bin/activate  # On Windows, use myenv\Scripts\activate
+   ```
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 3. **Set Up Environment Variables (Optional):**
 
@@ -232,3 +232,6 @@ Logs are written to `crdb_data_loader.log` by default and also displayed in the 
 - **Error: "Not a gzip file":** Ensure that the file being loaded is correctly formatted and not corrupted.
 - **Slow Data Loading:** Try adjusting the `batch_size` and `num_threads` in the configuration file for better performance.
 
+🦺 To exit the virtual environment: Run `deactivate`.
+
+🦺 To delete the virtual environment: Run `rm -rf myenv`.
