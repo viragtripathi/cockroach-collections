@@ -39,7 +39,14 @@ def generate_fake_data(num_records, columns_config):
     for _ in range(num_records):
         record = []
         for column, faker_method in columns_config.items():
-            if faker_method in unique_generators:
+            if faker_method.startswith("unique."):
+                unique_method = faker_method.split("unique.")[1]
+                try:
+                    fake_data = getattr(fake.unique, unique_method)()
+                except AttributeError:
+                    logging.error(f"Unique Faker method '{unique_method}' not found.")
+                    fake_data = None
+            elif faker_method in unique_generators:
                 fake_data = next(unique_generators[faker_method])
             elif '(' in faker_method and ')' in faker_method:
                 method_name, args_str = faker_method.split('(', 1)
@@ -56,14 +63,10 @@ def generate_fake_data(num_records, columns_config):
                     fake_data = getattr(fake, method_name)()
             elif hasattr(fake, faker_method.strip()):
                 fake_data = getattr(fake, faker_method.strip())()
-
-                # Truncate the fake data to fit within the defined VARCHAR limit
-                if column in ['fname', 'lname'] and isinstance(fake_data, str):
-                    fake_data = fake_data[:50]
-
             else:
                 logging.error(f"Faker method '{faker_method}' not found.")
                 fake_data = None
+
             record.append(fake_data)
         yield tuple(record)
 
