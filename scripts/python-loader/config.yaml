@@ -10,8 +10,6 @@ connection_params:
   sslmode: verify-full
   sslrootcert: /path/to/your/ssl/rootcert
 
-truncate_table: true
-
 tables:
   - table_name: "emp"
     file_path: "<path_to_csv_file>"
