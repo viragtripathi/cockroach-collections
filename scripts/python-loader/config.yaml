@@ -1,47 +1,135 @@
-# Database connection parameters
+log_level: INFO  # Set logging level
+
 connection_params:
-  host: "localhost"              # The host of the CockroachDB server
-  port: 26257                    # The port on which CockroachDB is running
-  user: "root"                   # The username for the CockroachDB connection
-  password: ""                   # The password for the CockroachDB connection (optional, can be set via DB_PASSWORD env variable)
-  dbname: "defaultdb"            # The name of the database to connect to
-  sslmode: "disable"             # SSL mode (disable, require, etc.)
+  dialect: cockroachdb
+  user: your_username
+  password: ${DB_PASSWORD}
+  host: your_host
+  port: 26257
+  dbname: your_dbname
+  sslmode: verify-full
+  sslrootcert: /path/to/your/ssl/rootcert
 
-# Table to load data into
-table_name: "emp"                # The target table name in the database
+truncate_table: true
 
-# Columns mapping for data load or fake data generation
-columns:
-  empno: "unique_int"            # Unique employee number
-  fname: "first_name"            # First name
-  lname: "last_name"             # Last name
-  job: "job"                     # Job title
-  mgr: "random_int(min=1000, max=9999)"  # Manager ID (random integer)
-  hiredate: "date_time_this_century"     # Hire date
-  sal: "pydecimal(left_digits=5, right_digits=2, positive=True)"  # Salary
-  comm: "pydecimal(left_digits=4, right_digits=2, positive=True)"  # Commission
-  dept: "random_int(min=10, max=99)"      # Department number
+tables:
+  - table_name: "emp"
+    file_path: "<path_to_csv_file>"
+    file_format: "csv"
+    batch_size: 1000
+    num_threads: 4  # Specify the number of threads here
+    truncate_table: true # Whether to truncate the table before loading data
+    generate_fake_data: false
+    num_fake_records: 100000
+    columns:
+      empno:
+        faker_method: unique_int
+        data_type: int
+      fname:
+        faker_method: first_name  # Generate random first name
+        data_type: str
+      lname:
+        faker_method: last_name  # Generate random last name
+        data_type: str
+      job:
+        faker_method: job
+        data_type: str
+      mgr:
+        faker_method: random_int
+        data_type: int
+      hiredate:
+        faker_method: date_time
+        data_type: datetime
+      sal:
+        faker_method: pydecimal(left_digits=5, right_digits=2, positive=True)
+        data_type: float
+      comm:
+        faker_method: pydecimal(left_digits=5, right_digits=2, positive=True)
+        data_type: float
+      dept:
+        faker_method: random_int
+        data_type: int
+  - table_name: customers  # Existing Customers table configuration
+    batch_size: 1000
+    generate_fake_data: true
+    num_fake_records: 10000
+    columns:
+      customer_id:
+        faker_method: uuid4
+        data_type: uuid
+      first_name:
+        faker_method: first_name
+        data_type: str
+      last_name:
+        faker_method: last_name
+        data_type: str
+      email:
+        faker_method: unique.email
+        data_type: str
+      phone_number:
+        faker_method: numerify(text='###-###-####')
+        data_type: str
+      address:
+        faker_method: address
+        data_type: str
+      date_of_birth:
+        faker_method: date_of_birth
+        data_type: date
+      created_at:
+        faker_method: date_time_this_decade
+        data_type: datetime
 
-# Data file path and format
-file_path: "path/to/your/data.csv"  # Path to the data file (CSV, TSV, JSON, etc.)
-file_format: "csv"                  # The format of the data file (csv, tsv, json)
+  - table_name: accounts  # Accounts table configuration
+    batch_size: 1000
+    generate_fake_data: true
+    num_fake_records: 5000  # Generate 5000 fake records for the Accounts table
+    columns:
+      account_id:
+        faker_method: uuid4
+        data_type: uuid
+      customer_id:
+        faker_method: uuid4  # For simplicity; in practice, these should match existing customer IDs
+        data_type: uuid
+      account_type:
+        faker_method: random_element(elements=['Checking', 'Savings', 'Credit'])
+        data_type: str
+      balance:
+        faker_method: pydecimal(left_digits=10, right_digits=2, positive=True)
+        data_type: float
+      created_at:
+        faker_method: date_time_this_decade
+        data_type: datetime
 
-# Loading settings
-batch_size: 1000                   # Number of records to load in each batch
-num_threads: 4                     # Number of threads to use for loading data
-log_level: "INFO"                  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  - table_name: transactions  # Transactions table configuration
+    batch_size: 1000
+    generate_fake_data: true
+    num_fake_records: 20000  # Generate 20000 fake records for the Transactions table
+    columns:
+      transaction_id:
+        faker_method: uuid4
+        data_type: uuid
+      account_id:
+        faker_method: uuid4  # For simplicity; in practice, these should match existing account IDs
+        data_type: uuid
+      amount:
+        faker_method: pydecimal(left_digits=10, right_digits=2, positive=True)
+        data_type: float
+      transaction_type:
+        faker_method: random_element(elements=['Deposit', 'Withdrawal', 'Transfer', 'Payment'])
+        data_type: str
+      transaction_date:
+        faker_method: date_time_this_year
+        data_type: datetime
+      description:
+        faker_method: sentence(nb_words=6)
+        data_type: str
 
-# Truncate table before loading data
-truncate_table: false              # Set to true to truncate the table before loading data
+# Alerting configuration
+slack_token: ${SLACK_TOKEN}
+slack_channel: your_slack_channel
 
-# Fake data generation settings (optional)
-generate_fake_data: false          # Set to true to generate and load fake data
-num_fake_records: 100000           # Number of fake records to generate
+alert_email: your_email@example.com
+smtp_server: smtp.example.com
 
-# Alerting settings (optional)
-slack_token: "<your-slack-token>"   # Slack token for sending alerts (can also be set via SLACK_TOKEN env variable)
-alert_email: "youremail@example.com"  # Email address to send alerts
-smtp_server: "smtp.example.com"      # SMTP server for sending email alerts
-
-# Scheduling settings (optional)
-schedule_time: 60                  # Time interval in minutes to run the data loader (only used with --schedule option)
+# Schedule configuration
+schedule_time: 60  # Run the loader every 60 minutes

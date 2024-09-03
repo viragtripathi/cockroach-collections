@@ -1,15 +1,25 @@
-# CockroachDB Data Loader
+# Database Data Loader
 
-This Python script is designed to load data into a CockroachDB database efficiently. It supports various file formats, compressed files, fake data generation, and can be configured to run on a schedule or watch for configuration changes. Additionally, the script can truncate the target table before loading data.
+This script is a powerful and flexible tool designed to load data into a variety of databases supported by SQLAlchemy, including CockroachDB, PostgreSQL, MySQL, Oracle, and more. It supports features such as:
+
+- **Loading data from CSV, TSV, JSON, and compressed files (`.gz`, `.tar.gz`)**
+- **Generating fake data using the Faker library**
+- **Loading multiple tables in parallel**
+- **Dynamic configuration via YAML files**
+- **Connection management using SQLAlchemy**
+- **Slack and email alerts for monitoring**
+- **Support for environment variables for sensitive information**
+- **Truncating target tables before data loading**
+- **Scheduling and watching config files for changes**
 
 ## Features
 
-- **Multi-threaded Data Loading:** Uses a thread pool to load data in parallel for improved performance.
-- **Support for Multiple File Formats:** Handles CSV, TSV, JSON, and compressed files (.gz, .tar.gz).
-- **Fake Data Generation:** Generates and loads fake data using the Faker library.
-- **Scheduling and Watching:** Can be scheduled to run at intervals or watch for configuration file changes.
-- **Truncate Target Table:** Optionally truncates the target table before loading new data.
-- **Logging and Alerting:** Provides detailed logging and can send alerts via Slack and email.
+- **Multi-table support**: Load multiple tables simultaneously using multithreading.
+- **Configurable via YAML**: Define tables, columns, and data sources in a YAML configuration file.
+- **Fake Data Generation**: Automatically generate fake data for testing purposes.
+- **Alerting**: Integration with Slack and email for real-time alerting.
+- **Scheduling**: Schedule data loads at regular intervals.
+- **Dynamic Connection**: Configure database connections using environment variables or directly in the YAML.
 
 ## Requirements
 
@@ -52,107 +62,193 @@ It's a good practice to create a virtual environment to manage dependencies so t
     export DB_PASSWORD=<your-database-password>
     ```
 
-## Configuration
-
-The script uses a YAML configuration file to specify the database connection parameters, file paths, and other options.
-
-### Sample Configuration (`config.yaml`):
-
-```yaml
-connection_params:
-  host: "localhost"
-  port: 26257
-  user: "root"
-  password: ""
-  dbname: "defaultdb"
-  sslmode: "disable"
-
-table_name: "emp"
-columns:
-  empno: "unique_int"
-  fname: "first_name"
-  lname: "last_name"
-  job: "job"
-  mgr: "random_int(min=1000, max=9999)"
-  hiredate: "date_time_this_century"
-  sal: "pydecimal(left_digits=5, right_digits=2, positive=True)"
-  comm: "pydecimal(left_digits=4, right_digits=2, positive=True)"
-  dept: "random_int(min=10, max=99)"
-
-file_path: "path/to/your/data.csv"
-file_format: "csv"  # or "tsv", "json"
-batch_size: 1000
-num_threads: 4
-log_level: "INFO"
-
-truncate_table: false  # Set to true to truncate the target table before loading data
-
-slack_token: "<your-slack-token>"
-alert_email: "youremail@example.com"
-smtp_server: "smtp.example.com"
-
-# Optional
-generate_fake_data: false
-num_fake_records: 100000
-
-# Optional scheduling
-schedule_time: 60  # in minutes
-```
-
-Configuration with SSL Verification:
-
-```yaml
-connection_params:
-  host: "localhost"
-  port: 26257
-  user: "<user_name>"
-  password: "$DB_PASSWORD" # environment variable
-  dbname: "defaultdb"
-  sslmode: "verify-full"
-  sslrootcert: "/path/to/ca.crt"  # Path to your certificate file
-```
-
 ## Usage
 
-### Command Line Arguments:
+### Command-Line Arguments
 
-- `-c` or `--config`: Path to the configuration YAML file (required).
+- `-c`, `--config`: Path to the configuration YAML file (required).
 - `--generate_fake_data`: Generate and load fake data based on the configuration.
 - `--schedule`: Run the data loader on a schedule based on the configuration.
-- `--watch`: Watch the configuration file for changes and reload data automatically.
-- `--truncate`: Truncate the target table before loading data.
+- `--watch`: Watch the config file for changes and reload data.
+- `--truncate`: Truncate the target table(s) before loading data.
 
-### Example Commands:
+### Example Command
 
-- **Basic Usage:**
+```bash
+python3 data_loader.py -c config.yaml --generate_fake_data --truncate
+```
 
-    ```bash
-    python crdb_data_loader.py -c config.yaml
-    ```
+## Configuration
 
-- **Generate and Load Fake Data:**
+The script is configured using a YAML file. Below is an example configuration:
 
-    ```bash
-    python crdb_data_loader.py -c config.yaml --generate_fake_data
-    ```
+### Sample `config.yaml`
 
-- **Schedule Data Loading:**
+```yaml
+log_level: INFO
+generate_fake_data: false
+truncate_table: false
+schedule_time: 60  # in minutes
 
-    ```bash
-    python crdb_data_loader.py -c config.yaml --schedule
-    ```
+connection_params:
+  # Option 1: Using a connection string with environment variable substitution
+  connection_string: "cockroachdb+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?sslmode=verify-full&sslrootcert={SSL_ROOT_CERT}"
 
-- **Watch for Configuration Changes:**
+  # Option 2: Using individual parameters
+  dialect: cockroachdb
+  user: root
+  password: mypassword  # Alternatively, use {DB_PASSWORD} for environment variable substitution
+  host: localhost
+  port: 26257
+  dbname: defaultdb
+  sslmode: verify-full
+  sslrootcert: /path/to/root.crt
 
-    ```bash
-    python crdb_data_loader.py -c config.yaml --watch
-    ```
+tables:
+  - table_name: customers
+    num_threads: 4
+    batch_size: 1000
+    file_format: csv
+    file_path: /path/to/data/customers.csv  # Or use .tar.gz, .gz, .json
+    columns:
+      customer_id:
+        data_type: uuid
+        faker_method: uuid4
+      first_name:
+        data_type: str
+        faker_method: first_name
+      last_name:
+        data_type: str
+        faker_method: last_name
+      email:
+        data_type: str
+        faker_method: unique.email
+      phone_number:
+        data_type: str
+        faker_method: "numerify(text='###-###-####')"
+      address:
+        data_type: str
+        faker_method: address
+      date_of_birth:
+        data_type: date
+        faker_method: date_of_birth
+      created_at:
+        data_type: datetime
+        faker_method: date_time
 
-- **Truncate the Target Table Before Loading Data:**
+  - table_name: orders
+    num_threads: 2
+    batch_size: 500
+    file_format: tsv
+    file_path: /path/to/data/orders.tsv
+    columns:
+      order_id:
+        data_type: uuid
+        faker_method: uuid4
+      customer_id:
+        data_type: uuid
+        faker_method: uuid4
+      amount:
+        data_type: float
+        faker_method: pydecimal(left_digits=5, right_digits=2, positive=True)
+      order_date:
+        data_type: datetime
+        faker_method: date_time_this_year
 
-    ```bash
-    python crdb_data_loader.py -c config.yaml --truncate
-    ```
+# Alert configuration
+slack_token: "{SLACK_TOKEN}"
+slack_channel: "#alerts"
+alert_email: your_email@example.com
+smtp_server: smtp.example.com
+```
+
+### Supported Databases
+
+This script supports any database that SQLAlchemy supports. Here are some examples:
+
+#### CockroachDB
+
+```yaml
+connection_params:
+  connection_string: "cockroachdb+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?sslmode=verify-full&sslrootcert={SSL_ROOT_CERT}"
+```
+
+#### PostgreSQL
+
+```yaml
+connection_params:
+  connection_string: "postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?sslmode=verify-full&sslrootcert={SSL_ROOT_CERT}"
+```
+
+#### MySQL
+
+```yaml
+connection_params:
+  connection_string: "mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?sslmode=required"
+```
+
+#### Oracle
+
+```yaml
+connection_params:
+  connection_string: "oracle+cx_oracle://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?ssl_mode=required"
+```
+
+## Environment Variables
+
+The script supports environment variables to securely manage sensitive information. Example:
+
+```bash
+export DB_USER=myuser
+export DB_PASSWORD=mypassword
+export DB_HOST=myhost
+export DB_PORT=26257
+export DB_NAME=mydatabase
+export SSL_ROOT_CERT=/path/to/root.crt
+export SLACK_TOKEN=xoxb-your-slack-token
+```
+
+### Substituting Environment Variables
+
+In the YAML file:
+
+```yaml
+connection_params:
+  connection_string: "cockroachdb+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?sslmode=verify-full&sslrootcert={SSL_ROOT_CERT}"
+```
+
+Or use as individual params:
+
+```yaml
+connection_params:
+  user: "{DB_USER}"
+  password: "{DB_PASSWORD}"
+  host: "{DB_HOST}"
+  port: "{DB_PORT}"
+  dbname: "{DB_NAME}"
+  sslmode: verify-full
+  sslrootcert: "{SSL_ROOT_CERT}"
+```
+
+## Running the Script
+
+To load data, run:
+
+```bash
+python3 data_loader.py -c config.yaml --generate_fake_data --truncate
+```
+
+To schedule a regular load:
+
+```bash
+python3 data_loader.py -c config.yaml --schedule
+```
+
+To watch the config file for changes:
+
+```bash
+python3 data_loader.py -c config.yaml --watch
+```
 
 ## Running in the Background
 
@@ -161,7 +257,7 @@ To run the script in the background, you can use `nohup` or a similar command to
 ### Using `nohup`:
 
 ```bash
-nohup python crdb_data_loader.py -c config.yaml --watch > loader.log 2>&1 &
+nohup python data_loader.py -c config.yaml --watch > loader.log 2>&1 &
 ```
 
 - **`nohup`**: Runs the command in the background.
@@ -197,7 +293,7 @@ ENV DB_PASSWORD=<your-database-password>
 EXPOSE 8000
 
 # Run the script
-CMD ["python", "crdb_data_loader.py", "-c", "config.yaml", "--watch"]
+CMD ["python", "data_loader.py", "-c", "config.yaml", "--watch"]
 ```
 
 ### Build and Run the Docker Container
@@ -205,13 +301,13 @@ CMD ["python", "crdb_data_loader.py", "-c", "config.yaml", "--watch"]
 1. **Build the Docker Image:**
 
     ```bash
-    docker build -t crdb-loader .
+    docker build -t data-loader .
     ```
 
 2. **Run the Docker Container:**
 
     ```bash
-    docker run -d --name crdb-loader -v $(pwd)/config.yaml:/app/config.yaml crdb-loader
+    docker run -d --name data-loader -v $(pwd)/config.yaml:/app/config.yaml data-loader
     ```
 
 - **`-v $(pwd)/config.yaml:/app/config.yaml`**: Mounts the configuration file from your local machine into the container.
@@ -220,12 +316,12 @@ CMD ["python", "crdb_data_loader.py", "-c", "config.yaml", "--watch"]
 3. **Check Logs:**
 
     ```bash
-    docker logs -f crdb-loader
+    docker logs -f data-loader
     ```
 
 ## Logging
 
-Logs are written to `crdb_data_loader.log` by default and also displayed in the console. You can adjust the log level in the configuration file (`log_level: "DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"`).
+Logs are written to `data_loader.log` by default and also displayed in the console. You can adjust the log level in the configuration file (`log_level: "DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"`).
 
 ## Troubleshooting
 

@@ -1,8 +1,12 @@
-psycopg2-binary>=2.9.7      # PostgreSQL database adapter for Python
-PyYAML>=6.0                 # YAML parser and emitter for Python
-tqdm>=4.65.0                # Fast, extensible progress bar for loops and tasks
-Faker>=19.5.0               # Fake data generator for Python
-schedule>=1.2.0             # Job scheduling for humans
-watchdog>=3.0.0             # File system events monitoring
-slack-sdk>=3.21.3           # Python SDK for Slack API
-
+PyYAML>=6.0                    # YAML parser and emitter for Python
+tqdm>=4.65.0                   # Fast, extensible progress bar for loops and tasks
+Faker>=19.5.0                  # Fake data generator for Python
+schedule>=1.2.0                # Job scheduling for humans
+watchdog>=3.0.0                # File system events monitoring
+slack-sdk>=3.21.3              # Python SDK for Slack API
+sqlalchemy>=2.0.18             # SQLAlchemy ORM
+mysql-connector-python>=8.0.33 # MySQL
+cx_Oracle>=8.3.0               # Oracle
+pyodbc>=4.0.35                 # SQL Server
+psycopg2-binary>=2.9.7         # PostgreSQL database adapter for Python
+sqlalchemy-cockroachdb>=2.0.2  # CockroachDB
