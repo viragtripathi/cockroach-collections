@@ -210,7 +210,7 @@ def load_batch(table, batch_data, total_records, records_loaded, progress_bar, s
         progress_bar.update(len(batch_data))
         elapsed_time = time.time() - start_time
 
-        logging.info(f"Batch of {len(batch_data)} records inserted successfully in {elapsed_time:.2f} seconds.")
+        logging.debug(f"Batch of {len(batch_data)} records inserted successfully in {elapsed_time:.2f} seconds.")
         return records_loaded, elapsed_time
     except Exception as e:
         session.rollback()
