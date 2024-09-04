@@ -23,6 +23,10 @@ from slack_sdk.errors import SlackApiError
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, date
+import boto3
+from google.cloud import storage as gcs
+from azure.storage.blob import BlobServiceClient
+from io import BytesIO
 
 # SQLAlchemy setup
 Session = None
@@ -97,42 +101,72 @@ def generate_fake_data(num_records, columns_config):
         yield tuple(record)
 
 def read_data(file_path, file_format='csv'):
-    if file_path.endswith('.tar.gz'):
+    data_rows = []
+    total_records = 0
+
+    if file_path.startswith('s3://'):
+        bucket_name, key = file_path[5:].split('/', 1)
+        s3 = boto3.client('s3')
+        obj = s3.get_object(Bucket=bucket_name, Key=key)
+        file_content = obj['Body'].read().decode('utf-8')
+        data_rows, total_records = parse_file_content(file_content, file_format)
+
+    elif file_path.startswith('gs://'):
+        bucket_name, key = file_path[5:].split('/', 1)
+        client = gcs.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(key)
+        file_content = blob.download_as_text()
+        data_rows, total_records = parse_file_content(file_content, file_format)
+
+    elif file_path.startswith('azure://'):
+        connection_string = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        container_name, blob_name = file_path[8:].split('/', 1)
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        file_content = blob_client.download_blob().readall().decode('utf-8')
+        data_rows, total_records = parse_file_content(file_content, file_format)
+
+    elif file_path.endswith('.tar.gz'):
         with tarfile.open(file_path, "r:gz") as tar:
             members = [m for m in tar.getmembers() if m.isfile()]
             csv_file = next((m for m in members if m.name.endswith('.csv')), members[0])
             with tar.extractfile(csv_file) as f:
-                reader = csv.reader(f.read().decode('utf-8').splitlines())
-                headers = next(reader)  # Skip header row
-                data_rows = [tuple(row) for row in reader]
-                total_records = len(data_rows)
+                file_content = f.read().decode('utf-8')
+                data_rows, total_records = parse_file_content(file_content, file_format)
+
     elif file_path.endswith('.gz'):
         with gzip.open(file_path, 'rt') as file:
-            reader = csv.reader(file)
-            headers = next(reader)  # Skip header row
-            data_rows = [tuple(row) for row in reader]
-            total_records = len(data_rows)
+            file_content = file.read()
+            data_rows, total_records = parse_file_content(file_content, file_format)
+
     elif file_path.endswith('.csv'):
         with open(file_path, 'r') as file:
-            reader = csv.reader(file)
-            headers = next(reader)  # Skip header row
-            data_rows = [tuple(row) for row in reader]
-            total_records = len(data_rows)
+            file_content = file.read()
+            data_rows, total_records = parse_file_content(file_content, file_format)
+
     elif file_format == 'tsv':
         with open(file_path, 'r') as file:
-            reader = csv.reader(file, delimiter='\t')
-            headers = next(reader)  # Skip header row
-            data_rows = [tuple(row) for row in reader]
-            total_records = len(data_rows)
+            file_content = file.read()
+            data_rows, total_records = parse_file_content(file_content, file_format, delimiter='\t')
+
     elif file_format == 'json':
         with open(file_path, 'r') as file:
             data = json.load(file)
             data_rows = [tuple(entry.values()) for entry in data]
             total_records = len(data)
+
     else:
         logging.error(f"Unsupported file format: {file_format}")
         sys.exit(1)
 
+    return data_rows, total_records
+
+def parse_file_content(file_content, file_format, delimiter=','):
+    reader = csv.reader(file_content.splitlines(), delimiter=delimiter)
+    headers = next(reader)  # Skip header row
+    data_rows = [tuple(row) for row in reader]
+    total_records = len(data_rows)
     return data_rows, total_records
 
 def init_engine_and_session(connection_string):
@@ -241,6 +275,7 @@ def process_data_load_for_table(table_config, global_config):
             if not file_path:
                 logging.critical(f"file_path must be specified for table '{table_config['table_name']}' unless generate_fake_data is set to true.")
                 return
+            logging.info(f"Loading data from file: {file_path}")
             data_source, total_records = read_data(file_path, table_config['file_format'])
             progress_bar = tqdm(total=total_records, desc=f"Loading Data from File for {table_config['table_name']}", unit="records")
 

@@ -10,3 +10,6 @@ cx_Oracle>=8.3.0               # Oracle
 pyodbc>=4.0.35                 # SQL Server
 psycopg2-binary>=2.9.7         # PostgreSQL database adapter for Python
 sqlalchemy-cockroachdb>=2.0.2  # CockroachDB
+boto3>=1.24.0		       # For interacting with AWS S3
+google-cloud-storage>=2.3.0    # For interacting with Google Cloud Storage
+azure-storage-blob>=12.9.0     # For interacting with Azure Blob Storage
