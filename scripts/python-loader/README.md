@@ -3,6 +3,7 @@
 This script is a powerful and flexible tool designed to load data into a variety of databases supported by SQLAlchemy, including CockroachDB, PostgreSQL, MySQL, Oracle, and more. It supports features such as:
 
 - **Loading data from CSV, TSV, JSON, and compressed files (`.gz`, `.tar.gz`)**
+- **Load data from cloud storage (Amazon S3, Google Cloud Storage, Azure Blob Storage)**
 - **Generating fake data using the Faker library**
 - **Loading multiple tables in parallel**
 - **Dynamic configuration via YAML files**
@@ -318,6 +319,40 @@ CMD ["python", "data_loader.py", "-c", "config.yaml", "--watch"]
     ```bash
     docker logs -f data-loader
     ```
+
+## Cloud Storage Integration
+
+### Amazon S3
+
+To load data from an S3 bucket, specify the `file_path` in the `config.yaml` with the S3 URI (e.g., `s3://mybucket/filename.csv`). Ensure that your AWS credentials are set up correctly in your environment or provide them via environment variables.
+
+```yaml
+file_path: "s3://mybucket/filename.csv"
+```
+
+### Google Cloud Storage
+
+For Google Cloud Storage, specify the `file_path` with the GCS URI (e.g., `gs://mybucket/filename.csv`). Make sure to authenticate with the appropriate service account credentials.
+
+```yaml
+file_path: "gs://mybucket/filename.csv"
+```
+
+### Azure Blob Storage
+
+For Azure Blob Storage, specify the `file_path` with the Azure Blob URI (e.g., `https://myaccount.blob.core.windows.net/mycontainer/filename.csv`). Ensure that your Azure credentials are set up correctly.
+
+```yaml
+file_path: "https://myaccount.blob.core.windows.net/mycontainer/filename.csv"
+```
+
+### Credentials Management
+
+If the cloud storage services require credentials, make sure they are available in the environment:
+
+- **AWS S3**: Use `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables or profiles in `~/.aws/credentials`.
+- **Google Cloud Storage**: Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to your service account JSON key file.
+- **Azure Blob Storage**: Use the `AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_ACCOUNT_NAME` and `AZURE_STORAGE_ACCOUNT_KEY` environment variables.
 
 ## Logging
 
