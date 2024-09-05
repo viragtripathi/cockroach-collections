@@ -32,11 +32,11 @@ This script is a powerful and flexible tool designed to load data into a variety
 1. **Execute the following commands (copy & paste) to download and setup the data loader**
 
     ```bash
-   wget -c https://github.com/viragtripathi/cockroach-demos/archive/main.zip && \
+   wget -c https://github.com/viragtripathi/cockroach-collections/archive/main.zip && \
    mkdir -p data-loader-python && \
-   unzip main.zip "cockroach-demos-main/scripts/data-loader-python/*" -d data-loader-python && \
-   cp -R data-loader-python/cockroach-demos-main/scripts/data-loader-python/* data-loader-python && \
-   rm -rf main.zip data-loader-python/cockroach-demos-main && \
+   unzip main.zip "cockroach-collections-main/scripts/data-loader-python/*" -d data-loader-python && \
+   cp -R data-loader-python/cockroach-collections-main/scripts/data-loader-python/* data-loader-python && \
+   rm -rf main.zip data-loader-python/cockroach-collections-main && \
    cd data-loader-python
     ```
 
