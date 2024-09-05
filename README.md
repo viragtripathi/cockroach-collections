@@ -1,1 +1,1 @@
-# cockroach-demos
+# cockroach-collections
