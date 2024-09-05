@@ -34,9 +34,9 @@ This script is a powerful and flexible tool designed to load data into a variety
     ```bash
    wget -c https://github.com/viragtripathi/cockroach-demos/archive/main.zip && \
    mkdir -p data-loader-python && \
-   unzip main.zip "cockroach-demos-main/scripts/data-loader-python/*" -d python-loader && \
-   cp -R data-loader-python/cockroach-demos-main/scripts/python-loader/* data-loader-python && \
-   rm -rf main.zip python-loader/cockroach-demos-main && \
+   unzip main.zip "cockroach-demos-main/scripts/data-loader-python/*" -d data-loader-python && \
+   cp -R data-loader-python/cockroach-demos-main/scripts/data-loader-python/* data-loader-python && \
+   rm -rf main.zip data-loader-python/cockroach-demos-main && \
    cd data-loader-python
     ```
 
