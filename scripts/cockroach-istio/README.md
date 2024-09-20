@@ -320,6 +320,35 @@ Apply the configuration:
 kubectl apply -f cockroachdb-istio.yaml
 ```
 
+### 2. Set Up cockroachdb-ui.yaml for the CockroachDB Admin UI
+   The CockroachDB Admin UI needs its own routing via the Istio Gateway. Create a file named cockroachdb-ui.yaml:
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+   name: cockroachdb-ui
+spec:
+   hosts:
+      - "*"
+   gateways:
+      - cockroachdb-gateway
+   http:
+      - match:
+           - port: 80
+        route:
+           - destination:
+                host: cockroachdb-public
+                port:
+                   number: 8080
+```
+
+Apply the configuration:
+
+```bash
+kubectl apply -f cockroachdb-ui.yaml
+```
+
 ---
 
 ## 6. Access CockroachDB
