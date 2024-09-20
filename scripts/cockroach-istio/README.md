@@ -31,6 +31,100 @@ Ensure you have the following tools installed:
 
 ### For Local Minikube (for Testing and Demos)
 
+<details><summary>Installing Docker, Colima, and Minikube on macOS:</summary>
+
+### Step 1: Install Homebrew (if not already installed)
+
+If you haven’t installed Homebrew yet, you can install it by running:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### Step 2: Install Docker
+
+Docker is required to run containers on your local machine.
+
+Install Docker using Homebrew:
+
+   ```bash
+   brew install docker
+   ```
+
+### Step 3: Install Colima (Docker Alternative)
+
+Colima is a lightweight alternative to Docker Desktop that allows you to run containers and even Kubernetes (similar to Docker Desktop).
+
+1. Install Colima using Homebrew:
+
+   ```bash
+   brew install colima
+   ```
+
+2. Verify Colima is installed:
+
+   ```bash
+   colima --version
+   ```
+
+### Step 4: Install Minikube
+
+Minikube allows you to run a local Kubernetes cluster, which is required to deploy CockroachDB and Istio.
+
+1. Install Minikube using Homebrew:
+
+   ```bash
+   brew install minikube
+   ```
+
+2. Verify Minikube is installed:
+
+   ```bash
+   minikube version
+   ```
+
+## Starting Colima and Minikube on macOS
+
+Once Docker, Colima, and Minikube are installed, follow these steps to start Colima and Minikube for running Kubernetes:
+
+### Step 1: Start Colima
+
+Start Colima with the desired CPU and memory resources and enable Kubernetes support. This will ensure Colima provides enough resources to run both CockroachDB and Istio.
+
+1. Run the following command to start Colima with 8 CPUs, 20 GB of memory, and Kubernetes support:
+
+   ```bash
+   colima start --cpu 8 --memory 20 --with-kubernetes
+   ```
+
+   - `--cpu 8`: Allocates 8 CPU cores to Colima.
+   - `--memory 20`: Allocates 20 GB of memory to Colima.
+   - `--with-kubernetes`: Starts Kubernetes within Colima.
+
+2. After Colima starts, verify that Kubernetes is running inside Colima:
+
+   ```bash
+   colima status
+   ```
+
+### Step 2: Start Minikube
+
+Once Colima is up and running, start Minikube using Docker as the driver:
+
+```bash
+minikube start --driver=docker
+```
+
+- This starts Minikube with Docker as the backend, allowing you to run a local Kubernetes cluster.
+
+Verify that Minikube is running by checking the status:
+
+```bash
+minikube status
+```
+
+</details>
+
 1. Start Minikube with the Docker driver and ensure Kubernetes is running:
    ```bash
    minikube start --driver=docker
