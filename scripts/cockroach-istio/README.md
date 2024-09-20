@@ -1,5 +1,12 @@
 # CockroachDB with Istio on Kubernetes and Minikube: Step-by-Step Guide
 
+<details><summary><b>What is Istio?</b></summary>
+
+Istio is an open-source service mesh that provides a way to control how microservices communicate within a distributed system. It runs transparently in the background and handles traffic management, security, policy enforcement, and observability for services in Kubernetes clusters, like CockroachDB.
+
+Istio adds a layer of functionality on top of Kubernetes that makes it easier to manage service-to-service communication in a secure, reliable, and observable way. This is especially important in modern microservice architectures, where many services need to communicate with each other across complex, distributed systems.
+</details>
+
 This guide walks you through setting up a **CockroachDB** cluster with **Istio** service mesh on both **real Kubernetes platforms** and **Minikube** for demo purposes. It covers both **secure** and **non-secure** setups, allowing you to choose the appropriate setup based on your needs.
 
 ## Prerequisites
