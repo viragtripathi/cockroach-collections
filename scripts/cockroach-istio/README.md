@@ -394,10 +394,43 @@ kubectl apply -f cockroachdb-ui.yaml
 
 ---
 
-## Troubleshooting
+## Troubleshooting & Debugging
 
 1. **Istio Sidecar Not Injected**: Ensure sidecar injection is either disabled for CockroachDB or configured correctly.
 2. **Cannot Connect to SQL**: Check that port `26257` is correctly routed through Istio Ingress Gateway.
 3. **404 NR (No Route)**: Ensure your `VirtualService` is routing HTTP traffic to CockroachDB Admin UI on port `8080`.
+4. **Connect to the SQL shell of the CockroachDB node**:
+   ```bash
+   kubectl exec -it cockroachdb-0 -- ./cockroach sql --insecure
+   ```
+5. **Check Istio Logs for Errors**:
+   ```bash
+   kubectl logs -l app=istio-ingressgateway -n istio-system
+   ```
+6. **Test Connection Using Port Forwarding with Istio**:
+   ```bash
+   kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:8080
+   ```
+7. **Double-Check the UI Service**:
+   ```bash
+   kubectl get svc cockroachdb-public
+   ```
+8. **Verify VirtualService Configuration**:
+   ```bash
+   kubectl get virtualservice cockroachdb-ui -o yaml
+   ```
+9. **Verify Gateway Configuration**:
+   ```bash
+   kubectl get gateway cockroachdb-gateway -o yaml
+   ```
+10. **Check If Routes Are Configured**:
+   ```bash
+   istioctl proxy-config routes <istio-ingressgateway-pod-name> -n istio-system
+   ```
+   To get the <istio-ingressgateway-pod-name>, you can list the pods in the istio-system namespace. The name of the istio-ingressgateway pod will be displayed in the output.
 
+Run the following command to get the pod name:
+   ```bash
+   kubectl get pods -n istio-system
+   ```
 ---
