@@ -185,6 +185,11 @@ CockroachDB can be deployed in both **secure** and **non-secure** modes. Secure 
    If you're running on Minikube or a low-resource machine, adjust the memory requests and API version:
 
    - **Change the `apiVersion`** from `v1beta1` to `v1` in the `PodDisruptionBudget` section:
+
+     💡
+     `apiVersion` change is only required if you run into `error: resource mapping not found for name: "cockroachdb-budget" namespace: "" from "https://raw.githubusercontent.com/cockroachdb/cockroach/master/cloud/kubernetes/cockroachdb-statefulset.yaml": no matches for kind "PodDisruptionBudget" in version "policy/v1beta1"
+     ensure CRDs are installed first` Since Kubernetes 1.21, the `PodDisruptionBudget` API has moved to `policy/v1`, and the old v1beta1 version is no longer available.
+
      ```yaml
      apiVersion: policy/v1
      ```
