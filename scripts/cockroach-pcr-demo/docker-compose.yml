@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  certs-generator:
+    image: cockroachdb/cockroach:latest
+    command: ["cert", "create-ca", "--certs-dir=/certs", "--ca-key=/certs/ca.key"]
+    hostname: certs-generator
+    container_name: certs-generator
+    networks:
+      - dc1
+      - dc2
+    volumes:
+      - ./certs:/certs
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /certs && cockroach cert create-ca --certs-dir=/certs --ca-key=/certs/ca.key && \
+      cockroach cert create-node localhost crdb-node1-dc1 crdb-node2-dc1 crdb-node3-dc1 crdb-node1-dc2 crdb-node2-dc2 crdb-node3-dc2 --certs-dir=/certs --ca-key=/certs/ca.key && \
+      cockroach cert create-client root --certs-dir=/certs --ca-key=/certs/ca.key"]
+
+  crdb-node1-dc1:
+    image: cockroachdb/cockroach:latest
+    command: ["start", "--join=crdb-node1-dc1,crdb-node2-dc1,crdb-node3-dc1,crdb-node1-dc2,crdb-node2-dc2,crdb-node3-dc2", "--certs-dir=/certs", "--advertise-addr=crdb-node1-dc1"]
+    hostname: crdb-node1-dc1
+    container_name: crdb-node1-dc1
+    depends_on:
+      - certs-generator
+    networks:
+      - dc1
+    volumes:
+      - ./certs:/certs
+      - ./cockroach-data/dc1/node1:/cockroach/cockroach-data
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+
+  crdb-node2-dc1:
+    image: cockroachdb/cockroach:latest
+    command: ["start", "--join=crdb-node1-dc1,crdb-node2-dc1,crdb-node3-dc1,crdb-node1-dc2,crdb-node2-dc2,crdb-node3-dc2", "--certs-dir=/certs", "--advertise-addr=crdb-node2-dc1"]
+    hostname: crdb-node2-dc1
+    container_name: crdb-node2-dc1
+    depends_on:
+      - certs-generator
+    networks:
+      - dc1
+    volumes:
+      - ./certs:/certs
+      - ./cockroach-data/dc1/node2:/cockroach/cockroach-data
+    ports:
+      - "26258:26257"
+      - "8081:8080"
+
+  crdb-node3-dc1:
+    image: cockroachdb/cockroach:latest
+    command: ["start", "--join=crdb-node1-dc1,crdb-node2-dc1,crdb-node3-dc1,crdb-node1-dc2,crdb-node2-dc2,crdb-node3-dc2", "--certs-dir=/certs", "--advertise-addr=crdb-node3-dc1"]
+    hostname: crdb-node3-dc1
+    container_name: crdb-node3-dc1
+    depends_on:
+      - certs-generator
+    networks:
+      - dc1
+    volumes:
+      - ./certs:/certs
+      - ./cockroach-data/dc1/node3:/cockroach/cockroach-data
+    ports:
+      - "26259:26257"
+      - "8082:8080"
+
+  crdb-node1-dc2:
+    image: cockroachdb/cockroach:latest
+    command: ["start", "--join=crdb-node1-dc1,crdb-node2-dc1,crdb-node3-dc1,crdb-node1-dc2,crdb-node2-dc2,crdb-node3-dc2", "--certs-dir=/certs", "--advertise-addr=crdb-node1-dc2"]
+    hostname: crdb-node1-dc2
+    container_name: crdb-node1-dc2
+    depends_on:
+      - certs-generator
+    networks:
+      - dc2
+    volumes:
+      - ./certs:/certs
+      - ./cockroach-data/dc2/node1:/cockroach/cockroach-data
+    ports:
+      - "26357:26257"
+      - "8083:8080"
+
+  crdb-node2-dc2:
+    image: cockroachdb/cockroach:latest
+    command: ["start", "--join=crdb-node1-dc1,crdb-node2-dc1,crdb-node3-dc1,crdb-node1-dc2,crdb-node2-dc2,crdb-node3-dc2", "--certs-dir=/certs", "--advertise-addr=crdb-node2-dc2"]
+    hostname: crdb-node2-dc2
+    container_name: crdb-node2-dc2
+    depends_on:
+      - certs-generator
+    networks:
+      - dc2
+    volumes:
+      - ./certs:/certs
+      - ./cockroach-data/dc2/node2:/cockroach/cockroach-data
+    ports:
+      - "26358:26257"
+      - "8084:8080"
+
+  crdb-node3-dc2:
+    image: cockroachdb/cockroach:latest
+    command: ["start", "--join=crdb-node1-dc1,crdb-node2-dc1,crdb-node3-dc1,crdb-node1-dc2,crdb-node2-dc2,crdb-node3-dc2", "--certs-dir=/certs", "--advertise-addr=crdb-node3-dc2"]
+    hostname: crdb-node3-dc2
+    container_name: crdb-node3-dc2
+    depends_on:
+      - certs-generator
+    networks:
+      - dc2
+    volumes:
+      - ./certs:/certs
+      - ./cockroach-data/dc2/node3:/cockroach/cockroach-data
+    ports:
+      - "26359:26257"
+      - "8085:8080"
+
+networks:
+  dc1:
+    name: dc1
+    driver: bridge
+  dc2:
+    name: dc2
+    driver: bridge
+
