@@ -214,13 +214,22 @@ gcc test_cockroach_odbc.c -o test_odbc -I/opt/homebrew/include -L/opt/homebrew/l
 ./test_odbc
 ```
 
-### **Expected Output**
+<details>
+  <summary>Expected Output</summary>
+
+### SQL Response
+```sql
+root@localhost:26257/defaultdb> select * from test_table;
+          id          |  name
+----------------------+----------
+  1053673100619251713 | Alice
+  1053673100619284481 | Bob
+  1053673100619317249 | Charlie
+(3 rows)
+
+Time: 2ms total (execution 2ms / network 0ms)
 ```
-Row: ID = 1, Name = Alice
-Row: ID = 2, Name = Bob
-Row: ID = 3, Name = Charlie
-ODBC Test Completed Successfully!
-```
+</details>
 
 ---
 
@@ -240,5 +249,19 @@ Insert **100,000 records** using:
 ```c
 SQLExecDirect(stmt, (SQLCHAR*)"INSERT INTO test_table (name) SELECT 'User_' || generate_series FROM generate_series(1, 100000);", SQL_NTS);
 ```
+<details>
+  <summary>Expected Output</summary>
+
+### SQL Response
+```sql
+root@localhost:26257/defaultdb> select count(*) from test_table;
+  count
+----------
+  100003
+(1 row)
+
+Time: 36ms total (execution 36ms / network 0ms)
+```
+</details>
 
 ---
