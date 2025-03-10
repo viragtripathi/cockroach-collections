@@ -196,6 +196,18 @@ int main() {
 ```sh
 gcc test_cockroach_odbc.c -o test_odbc -lodbc
 ```
+If you run into compilation error like this:
+````
+gcc test_cockroach_odbc.c -o test_odbc -lodbc
+test_cockroach_odbc.c:3:10: fatal error: 'sql.h' file not found
+3 | #include <sql.h>
+|          ^~~~~~~
+1 error generated.`
+````
+Find `sql.h` exact path e.g. `find /opt/homebrew -name "sql.h" 2>/dev/null` and retry
+```sh
+gcc test_cockroach_odbc.c -o test_odbc -I/opt/homebrew/include -L/opt/homebrew/lib -lodbc
+```
 
 ### **8.2 Run**
 ```sh
