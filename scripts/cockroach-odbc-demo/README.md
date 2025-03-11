@@ -215,7 +215,7 @@ gcc test_cockroach_odbc.c -o test_odbc -I/opt/homebrew/include -L/opt/homebrew/l
 ```
 
 <details>
-  <summary>Expected Output</summary>
+  <summary>🔎 Expected Output</summary>
 
 ### SQL Response
 ```sql
@@ -244,13 +244,13 @@ Recompile and run.
 ### **Scenario 2: Invalid Credentials**
 Modify `odbc.ini` with incorrect credentials and test.
 
-### **Scenario 3: Large Batch Inserts**
+### **Scenario 3: Batch Inserts**
 Insert **100,000 records** using:
 ```c
 SQLExecDirect(stmt, (SQLCHAR*)"INSERT INTO test_table (name) SELECT 'User_' || generate_series FROM generate_series(1, 100000);", SQL_NTS);
 ```
 <details>
-  <summary>Expected Output</summary>
+  <summary>🔎 Expected Output</summary>
 
 ### SQL Response
 ```sql
@@ -261,6 +261,38 @@ root@localhost:26257/defaultdb> select count(*) from test_table;
 (1 row)
 
 Time: 36ms total (execution 36ms / network 0ms)
+```
+</details>
+
+### **Scenario 4: Large Batched Inserts**
+
+### **1. Compile the Program**
+```sh
+gcc bulk_insert_cockroach.c -o bulk_copy -I/opt/homebrew/include -L/opt/homebrew/lib -lodbc
+```
+OR (For MAC)
+```sh
+gcc bulk_copy_cockroach.c -o bulk_copy -I/opt/homebrew/include -L/opt/homebrew/lib -lodbc
+```
+
+### **2. Run with Different Batch Sizes**
+| Batch Size                   | Command                                                                                                                                                                                                                                                     |
+|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **100K Inserts**             | `./bulk_copy`                                                                                                                                                                                                                                               |
+| **1M Inserts**               | Modify `#define BULK_SIZE 1000000` and recompile e.g. `sed -i '' 's/#define BULK_SIZE 100000/#define BULK_SIZE 1000000/' bulk_copy_cockroach.c && gcc bulk_copy_cockroach.c -o bulk_copy -I/opt/homebrew/include -L/opt/homebrew/lib -lodbc && ./bulk_copy` |
+| **Custom Size (e.g., 500K)** | Change `#define BULK_SIZE 500000` in the code                                                                                                                                                                                                               |
+
+<details>
+  <summary>🔎 Expected Output</summary>
+
+```
+Inserted records 1 to 1000
+Inserted records 1001 to 2000
+Inserted records 2001 to 3000
+...
+Inserted records 9998001 to 9999000
+Inserted records 9999001 to 10000000
+Successfully inserted 10000000 records in 63.09 seconds using batched INSERTs!
 ```
 </details>
 
