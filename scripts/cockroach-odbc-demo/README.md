@@ -270,10 +270,6 @@ Time: 36ms total (execution 36ms / network 0ms)
 ```sh
 gcc bulk_insert_cockroach.c -o bulk_copy -I/opt/homebrew/include -L/opt/homebrew/lib -lodbc
 ```
-OR (For MAC)
-```sh
-gcc bulk_copy_cockroach.c -o bulk_copy -I/opt/homebrew/include -L/opt/homebrew/lib -lodbc
-```
 
 ### **2. Run with Different Batch Sizes**
 | Batch Size                   | Command                                                                                                                                                                                                                                                     |
