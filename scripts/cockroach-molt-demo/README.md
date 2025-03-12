@@ -108,8 +108,7 @@ podman run --rm \
   -v $(pwd)/molt-data:/molt-data \
   cockroachdb/molt convert postgres \
   --schema /molt-data/postgres_schema.sql \
-  --url "postgres://root@host.docker.internal:26257/defaultdb?sslmode=disable" \
-  /molt-data/cockroach_schema.sql
+  --url "postgres://root@host.docker.internal:26257/defaultdb?sslmode=disable"
 ```
 
 If there are **failed statements**, edit them manually:
