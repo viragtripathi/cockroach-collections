@@ -45,32 +45,32 @@ echo "Waiting for nodes to start..."
 sleep 10
 
 # Initialize the clusters
-echo "Initializing the CockroachDB clusters..."
-podman exec -it crdb-node1-dc1 cockroach init --certs-dir=/certs --host=crdb-node1-dc1
-check_success
-podman exec -it crdb-node1-dc2 cockroach init --certs-dir=/certs --host=crdb-node1-dc2
-check_success
+#echo "Initializing the CockroachDB clusters..."
+#podman exec -it crdb-node1-dc1 cockroach init --certs-dir=/certs --host=crdb-node1-dc1 --virtualized
+#check_success
+#podman exec -it crdb-node1-dc2 cockroach init --certs-dir=/certs --host=crdb-node1-dc2 --virtualized-empty
+#check_success
 
 # Create a CockroachDB user
-echo "Creating admin user..."
-podman exec -it crdb-node1-dc1 cockroach sql --certs-dir=/certs --host=crdb-node1-dc1 --execute="CREATE USER pcr WITH PASSWORD 'securepassword';"
-check_success
-podman exec -it crdb-node1-dc2 cockroach sql --certs-dir=/certs --host=crdb-node1-dc2 --execute="CREATE USER pcr WITH PASSWORD 'securepassword';"
-check_success
+#echo "Creating admin user..."
+#podman exec -it crdb-node1-dc1 cockroach sql --certs-dir=/certs --host=crdb-node1-dc1 --execute="CREATE USER pcr WITH PASSWORD 'securepassword';"
+#check_success
+#podman exec -it crdb-node1-dc2 cockroach sql --certs-dir=/certs --host=crdb-node1-dc2 --execute="CREATE USER pcr WITH PASSWORD 'securepassword';"
+#check_success
 
 # Grant admin privileges
-echo "Granting admin privileges to user..."
-podman exec -it crdb-node1-dc1 cockroach sql --certs-dir=/certs --host=crdb-node1-dc1 --execute="GRANT admin TO pcr;"
-check_success
-podman exec -it crdb-node1-dc2 cockroach sql --certs-dir=/certs --host=crdb-node1-dc2 --execute="GRANT admin TO pcr;"
-check_success
+#echo "Granting admin privileges to user..."
+#podman exec -it crdb-node1-dc1 cockroach sql --certs-dir=/certs --host=crdb-node1-dc1 --execute="GRANT admin TO pcr;"
+#check_success
+#podman exec -it crdb-node1-dc2 cockroach sql --certs-dir=/certs --host=crdb-node1-dc2 --execute="GRANT admin TO pcr;"
+#check_success
 
 # Confirm cluster status
-echo "Checking cluster status..."
-podman exec -it crdb-node1-dc1 cockroach node status --certs-dir=/certs --host=crdb-node1-dc1
-check_success
-podman exec -it crdb-node1-dc2 cockroach node status --certs-dir=/certs --host=crdb-node1-dc2
-check_success
+#echo "Checking cluster status..."
+#podman exec -it crdb-node1-dc1 cockroach node status --certs-dir=/certs --host=crdb-node1-dc1
+#check_success
+#podman exec -it crdb-node1-dc2 cockroach node status --certs-dir=/certs --host=crdb-node1-dc2
+#check_success
 
 # Setup complete
 echo "CockroachDB cluster setup completed successfully!"
