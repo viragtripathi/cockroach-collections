@@ -100,6 +100,11 @@ script -c $(cockroach demo --insecure) /dev/null >/dev/null
 cockroach sql --url 'postgresql://root@0.0.0.0:26257/movr?sslmode=disable'
 ````
 
+* Multi-Region test
+````bash
+script -c $(cockroach demo --insecure --nodes=3 --demo-locality=region=us-east1:region=us-west1:region=us-central1 --no-example-database --empty) /dev/null >/dev/null
+````
+
 ### Stop cockroach demo
 
 ````bash
