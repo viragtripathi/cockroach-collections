@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:v25.2.1
+    container_name: cockroachdb
+    command: start-single-node --insecure
+    ports:
+      - "5432:26257"
+      - "8081:8080"  # CockroachDB Web UI (optional)
+    networks:
+      - fineract-demo
+    healthcheck:
+      test: ["CMD", "cockroach", "node", "status", "--insecure"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  fineract:
+    image: apache/fineract:latest
+    container_name: fineract-server
+    depends_on:
+      cockroachdb:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME=org.postgresql.Driver
+      - FINERACT_HIKARI_JDBC_URL=jdbc:postgresql://cockroachdb:26257/fineract_tenants
+      - FINERACT_HIKARI_USERNAME=root
+      - FINERACT_HIKARI_PASSWORD=
+      - FINERACT_DEFAULT_TENANTDB_HOSTNAME=cockroachdb
+      - FINERACT_DEFAULT_TENANTDB_PORT=26257
+      - FINERACT_DEFAULT_TENANTDB_NAME=fineract_default
+      - FINERACT_DEFAULT_TENANTDB_UID=root
+      - FINERACT_DEFAULT_TENANTDB_PWD=
+      - FINERACT_DEFAULT_TENANTDB_IDENTIFIER=default
+      - FINERACT_SERVER_SSL_ENABLED=false
+      - server.port=8080
+    networks:
+      - fineract-demo
+
+networks:
+  fineract-demo:
+    name: fineract-demo
+    driver: bridge
+
