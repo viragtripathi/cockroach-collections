@@ -26,13 +26,6 @@ It sets up a complete local environment suitable for experimentation and future 
 
 ## ⚙️ Getting Started
 
-Clone this repo:
-
-```bash
-git clone https://github.com/YOUR_USERNAME/cockroachdb-fineract-demo.git
-cd cockroachdb-fineract-demo
-````
-
 ### 🔹 Start the environment
 
 ```bash
