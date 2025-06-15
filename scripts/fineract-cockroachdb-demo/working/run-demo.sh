@@ -12,16 +12,15 @@ docker-compose down || true
 docker-compose up -d
 
 # Step 3: Wait for Fineract to finish Liquibase migration
-echo "⏳ Waiting for Fineract to start (this may take 30–60 seconds)..."
-until curl -sSf -u mifos:password http://localhost:8080/fineract-provider/api/v1/clients > /dev/null 2>&1; do
+echo "⏳ Waiting for Fineract to start..."
+until curl -k -sSf https://localhost:8085/fineract-provider/actuator/health | grep -q '"status":"UP"'; do
   sleep 5
 done
 
 # Step 4: Show access info
 echo
 echo "✅ Fineract is up and running!"
-echo "📘 Swagger UI:       http://localhost:8080/fineract-provider/swagger-ui.html"
+echo "📘 Swagger UI:       https://localhost:8085/fineract-provider/swagger-ui/index.html"
 echo "🔑 Default login:    mifos / password"
-echo "📂 Sample endpoint:  http://localhost:8080/fineract-provider/api/v1/clients"
+echo "📂 health endpoint:  https://localhost:8085/fineract-provider/actuator/health"
 echo
-
