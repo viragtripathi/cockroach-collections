@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:v25.2.1
+    container_name: cockroachdb
+    command: start-single-node --insecure
+    ports:
+      - "26257:26257"
+      - "8081:8080"
+    volumes:
+      - cockroach-data:/cockroach/cockroach-data
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - fineract-crdb-net
+
+  init-tenant:
+    image: cockroachdb/cockroach:v25.2.1
+    container_name: init-tenant
+    depends_on:
+      cockroachdb:
+        condition: service_healthy
+    volumes:
+      - ./init-tenant.sql:/docker-entrypoint-initdb.d/init-tenant.sql
+    entrypoint: >
+      sh -c "
+        sleep 5 &&
+        cockroach sql --insecure --host=cockroachdb -e 'CREATE DATABASE IF NOT EXISTS fineract_tenants; CREATE DATABASE IF NOT EXISTS fineract_default;' &&
+        cockroach sql --insecure --host=cockroachdb --database=fineract_tenants < /docker-entrypoint-initdb.d/init-tenant.sql
+      "
+    networks:
+      - fineract-crdb-net
+
+  fineract:
+    image: virag/fineract-cockroachdb-demo
+    container_name: fineract-cockroachdb-demo
+    depends_on:
+      cockroachdb:
+        condition: service_healthy
+      init-tenant:
+        condition: service_completed_successfully
+    environment:
+      - FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME=org.postgresql.Driver
+      - FINERACT_HIKARI_JDBC_URL=jdbc:postgresql://cockroachdb:26257/fineract_tenants
+      - FINERACT_HIKARI_USERNAME=root
+      - FINERACT_HIKARI_PASSWORD=
+    command: >
+      java -jar app.jar
+        --spring.profiles.active=postgresql
+        --fineract.tenant.default.db-host=cockroachdb
+        --fineract.tenant.default.db-port=26257
+        --fineract.tenant.default.db-name=fineract_default
+        --fineract.tenant.default.db-uid=root
+        --fineract.tenant.default.db-pwd=
+        --fineract.tenant.default.db-platform=postgresql
+        --fineract.tenant.default.db-identifier=default
+        --fineract.jdbc.tenant.datasource-provider=postgresql
+        --fineract.mode.multi-tenant=true
+        --fineract.server.ssl.enabled=false
+        --server.port=8085
+    ports:
+      - "8085:8085"
+    networks:
+      - fineract-crdb-net
+
+  post-init-tenant:
+    image: cockroachdb/cockroach:v25.2.1
+    container_name: post-init-tenant
+    depends_on:
+      fineract:
+        condition: service_healthy
+    volumes:
+      - ./post-init-tenant.sh:/post-init-tenant.sh
+    entrypoint: ["sh", "-c", "/post-init-tenant.sh"]
+    networks:
+      - fineract-crdb-net
+
+volumes:
+  cockroach-data:
+    name: cockroach-data
+
+networks:
+  fineract-crdb-net:
+    name: fineract-crdb-net
+    driver: bridge
