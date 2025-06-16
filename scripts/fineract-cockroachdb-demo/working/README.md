@@ -87,7 +87,27 @@ WHERE id = 1;
 * Manual tenant schema re-pointing to CockroachDB
 * Login and healthcheck APIs
 
+## ✅ Working Demo Screenshots
+
+### 🐚 Container Logs on Successful Startup
+![Fineract Logs](./fineract-logs.png)
+
+---
+
+### 📡 REST API Authentication Example via `curl`
+![API Authentication](./fineract-api-examples.png)
+
+---
+
+### 📘 Swagger UI Loaded from Running Fineract Instance
+![REST API Swagger UI](./fineract-rest-api.png)
+
 ### ⚠️ Known Gaps
 
 * Not all Liquibase changelog operations (like `ALTER`) are supported by CockroachDB
 * Long-term CockroachDB support in Apache Fineract will require upstream PRs and schema compatibility work
+
+## 🔗 References
+
+* [Apache Fineract](https://github.com/apache/fineract)
+* [CockroachDB Docs - PostgreSQL Compatibility](https://www.cockroachlabs.com/docs/stable/postgresql-compatibility.html)
