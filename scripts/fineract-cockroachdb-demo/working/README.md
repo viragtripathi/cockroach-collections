@@ -94,7 +94,7 @@ WHERE id = 1;
 
 ---
 
-### 📡 REST API Authentication Example via `curl`
+#### 🔐 Login & Client Creation API
 ![API Authentication](./fineract-api-examples.png)
 
 ---
