@@ -13,9 +13,11 @@ docker-compose up -d
 
 # Step 3: Wait for Fineract to finish Liquibase migration
 echo "⏳ Waiting for Fineract to start..."
-until curl -k -sSf https://localhost:8085/fineract-provider/actuator/health | grep -q '"status":"UP"'; do
+until curl -k -sSf https://localhost:8085/fineract-provider/actuator/health | grep -q '"status":"UP"' > /dev/null 2>&1; do
+  echo "⌛ Still waiting for Fineract to become available..."
   sleep 5
 done
+echo "✅ Fineract is up and healthy!"
 
 # Step 4: Show access info
 echo
