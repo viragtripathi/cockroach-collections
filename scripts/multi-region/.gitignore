@@ -1,0 +1,5 @@
+# CockroachDB data
+cockroach-data/
+
+# Logs
+*.log
