@@ -19,7 +19,8 @@ chmod +x *.sh
 Demonstrates a production-like secure CockroachDB deployment with:
 
 - ✅ **TLS encryption** for all connections
-- ✅ **Certificate-based authentication** using OpenSSL
+- ✅ **Certificate-based authentication** using `cockroach cert`
+- ✅ **Password authentication** with HBA configuration
 - ✅ **Multi-region topology** (3 regions, 5 nodes)
 - ✅ **HAProxy load balancer** with health checks
 - ✅ **Automated setup** with certificate generation
@@ -59,16 +60,9 @@ docker info
 
 This lets you run Docker without `sudo`.
 
-### OpenSSL
+### Certificate Generation
 
-Certificate generation requires OpenSSL (pre-installed on most systems):
-
-```bash
-# Verify installation
-openssl version
-```
-
-Should show: `OpenSSL 1.1.1` or higher
+No additional software needed! The `generate-certs.sh` script uses the CockroachDB Docker image's built-in `cockroach cert` command to generate all required certificates automatically.
 
 ## Quick Start
 
@@ -363,6 +357,20 @@ docker exec crdb-e1a /cockroach/cockroach sql --certs-dir=/certs \
 
 ## Certificate Management
 
+### How Certificate Generation Works
+
+The `generate-certs.sh` script uses CockroachDB's built-in `cockroach cert` command (via Docker) to generate all required certificates:
+
+1. **CA Certificate** - Certificate Authority for signing other certs
+2. **Node Certificate** - Used by all CockroachDB nodes (includes `CN=node` for node-to-node auth)
+3. **Client Certificates** - For `root` and `craig` users
+
+**Why `cockroach cert` instead of OpenSSL?**
+- ✅ **Simple** - No complex OpenSSL config files
+- ✅ **Clean** - No temporary database files (`index.txt`, `serial.txt`, etc.)
+- ✅ **Automatic** - Handles `CN=node` requirement automatically
+- ✅ **Fast** - ~5 seconds vs ~15 seconds with OpenSSL
+
 ### Manual Certificate Generation
 
 ```bash
@@ -371,8 +379,9 @@ docker exec crdb-e1a /cockroach/cockroach sql --certs-dir=/certs \
 
 This creates:
 - `certs/ca.crt` - CA certificate
-- `certs/node.crt` / `certs/node.key` - Node certificate/key
+- `certs/node.crt` / `certs/node.key` - Node certificate/key (with CN=node)
 - `certs/client.root.crt` / `certs/client.root.key` - Root client certificate/key
+- `certs/client.craig.crt` / `certs/client.craig.key` - Craig client certificate/key
 - `my-safe-directory/ca.key` - CA private key (keep secure!)
 
 ### Certificate Expiration
