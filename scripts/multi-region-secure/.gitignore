@@ -1,0 +1,16 @@
+# Generated certificates and keys
+certs/
+my-safe-directory/
+
+# OpenSSL generated files
+*.cnf
+*.csr
+*.pem
+index.txt*
+serial.txt*
+
+# CockroachDB data
+cockroach-data/
+
+# Logs
+*.log
