@@ -405,9 +405,9 @@ openssl x509 -in certs/client.root.crt -noout -dates
 
 ```bash
 # Change CockroachDB version
-CRDB_VERSION=v24.3.0 docker compose up -d
+CRDB_VERSION=v25.3.4 docker compose up -d
 
-# Default is v25.3.3
+# Default is v25.3.4
 ```
 
 ### Multi-Region Database Setup
