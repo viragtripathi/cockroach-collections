@@ -7,8 +7,9 @@ UPSERT INTO system.locations ("localityKey", "localityValue", latitude, longitud
 -- Enable password authentication (in addition to certificate auth)
 SET CLUSTER SETTING server.host_based_authentication.configuration = 'host all all all cert-password';
 
--- Enable vector index and buffered writes
-SET CLUSTER SETTING feature.vector_index.enabled = true;
+-- Vector index and buffered writes (VI GA in v25.4.0)
+-- For v25.3.x and older, uncomment this lines:
+-- SET CLUSTER SETTING feature.vector_index.enabled = true;
 SET CLUSTER SETTING kv.transaction.write_buffering.enabled = true;
 
 -- Create demo user with admin privileges (for DB Console access)
@@ -16,14 +17,18 @@ CREATE USER IF NOT EXISTS craig WITH PASSWORD 'cockroach';
 GRANT admin TO craig;
 
 -- Create demo transactions table
-CREATE TABLE IF NOT EXISTS defaultdb.demo_transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-  amount INT NOT NULL
-);
+-- Set the primary region for the database (replace with a region returned by SHOW REGIONS FROM CLUSTER)
+ALTER DATABASE defaultdb SET PRIMARY REGION "us-east-1";
 
--- Note: For full multi-region setup, app can run:
--- ALTER DATABASE defaultdb SET PRIMARY REGION "us-east-1";
--- ALTER DATABASE defaultdb ADD REGION "us-west-2";
--- ALTER DATABASE defaultdb ADD REGION "us-central-1";
--- ALTER DATABASE defaultdb SET SECONDARY REGION "us-west-2";
+-- Add additional regions
+ALTER DATABASE defaultdb ADD REGION "us-west-2";
+ALTER DATABASE defaultdb ADD REGION "us-central-1";
+
+-- Add secondary region
+ALTER DATABASE defaultdb SET SECONDARY REGION "us-west-2";
+
+-- Optional: survive an entire region failure (requires 3+ database regions)
+ALTER DATABASE defaultdb SURVIVE REGION FAILURE;
+
+-- Verify database regions & survival goal
+SHOW REGIONS FROM DATABASE defaultdb;

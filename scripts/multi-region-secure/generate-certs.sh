@@ -16,7 +16,7 @@ echo "Step 1: Creating CA certificate..."
 
 # Create CA certificate and key using cockroach cert
 docker run --rm -v "$(pwd)/certs:/certs" -v "$(pwd)/my-safe-directory:/ca-key" \
-  cockroachdb/cockroach:v25.3.4 cert create-ca \
+  cockroachdb/cockroach:v25.4.0 cert create-ca \
   --certs-dir=/certs \
   --ca-key=/ca-key/ca.key
 
@@ -28,7 +28,7 @@ echo "Step 2: Creating node certificate..."
 # Create node certificate (includes CN=node automatically)
 # Add all hostnames that nodes will use
 docker run --rm -v "$(pwd)/certs:/certs" -v "$(pwd)/my-safe-directory:/ca-key" \
-  cockroachdb/cockroach:v25.3.4 cert create-node \
+  cockroachdb/cockroach:v25.4.0 cert create-node \
   localhost \
   crdb-e1a \
   crdb-e1b \
@@ -47,7 +47,7 @@ echo "Step 3: Creating client certificate for root user..."
 
 # Create client certificate for root user
 docker run --rm -v "$(pwd)/certs:/certs" -v "$(pwd)/my-safe-directory:/ca-key" \
-  cockroachdb/cockroach:v25.3.4 cert create-client \
+  cockroachdb/cockroach:v25.4.0 cert create-client \
   root \
   --certs-dir=/certs \
   --ca-key=/ca-key/ca.key
@@ -59,7 +59,7 @@ echo "Step 4: Creating client certificate for craig user..."
 
 # Create client certificate for craig user
 docker run --rm -v "$(pwd)/certs:/certs" -v "$(pwd)/my-safe-directory:/ca-key" \
-  cockroachdb/cockroach:v25.3.4 cert create-client \
+  cockroachdb/cockroach:v25.4.0 cert create-client \
   craig \
   --certs-dir=/certs \
   --ca-key=/ca-key/ca.key

@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   cockroachdb:
-    image: cockroachdb/cockroach:v25.2.1
+    image: cockroachdb/cockroach:v25.4.0
     container_name: cockroachdb
     command: start-single-node --insecure
     ports:
@@ -19,7 +19,7 @@ services:
       - fineract-crdb-net
 
   init-tenant:
-    image: cockroachdb/cockroach:v25.2.1
+    image: cockroachdb/cockroach:v25.4.0
     container_name: init-tenant
     depends_on:
       cockroachdb:
@@ -68,7 +68,7 @@ services:
       - fineract-crdb-net
 
   post-init-tenant:
-    image: cockroachdb/cockroach:v25.2.1
+    image: cockroachdb/cockroach:v25.4.0
     container_name: post-init-tenant
     depends_on:
       fineract:
